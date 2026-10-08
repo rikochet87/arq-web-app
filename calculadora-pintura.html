@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de pintura: litros por m² | CalcuObra</title>
+  <meta name="description" content="Calculá cuántos litros de pintura necesitás para un ambiente según sus medidas, las manos y el rendimiento. Te dice qué envases comprar.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de pintura: litros por m² | CalcuObra">
+  <meta property="og:description" content="Calculá cuántos litros de pintura necesitás para un ambiente según sus medidas, las manos y el rendimiento. Te dice qué envases comprar.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de pintura","description":"Calculá cuántos litros de pintura necesitás para un ambiente según sus medidas, las manos y el rendimiento. Te dice qué envases comprar.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuántos m² rinde un litro de pintura?","acceptedAnswer":{"@type":"Answer","text":"Un látex interior rinde entre 10 y 12 m² por litro y por mano sobre una pared lisa y sellada. En exteriores o superficies rugosas baja a 6 u 8 m² por litro."}},{"@type":"Question","name":"¿Cuánta pintura necesito para una habitación de 4 × 3?","acceptedAnswer":{"@type":"Answer","text":"Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 10 m² por litro son cerca de 7 litros: alcanza con dos envases de 4 litros."}},{"@type":"Question","name":"¿Cuántas manos de pintura hay que dar?","acceptedAnswer":{"@type":"Answer","text":"Dos manos es lo habitual. Si cambiás de un color oscuro a uno claro, o la pared es nueva, puede hacer falta una tercera."}},{"@type":"Question","name":"¿Cuánto rinde una lata de 20 litros?","acceptedAnswer":{"@type":"Answer","text":"A 10 m² por litro, una lata de 20 litros cubre 200 m² en una mano, o 100 m² a dos manos."}},{"@type":"Question","name":"¿Tengo que descontar puertas y ventanas?","acceptedAnswer":{"@type":"Answer","text":"Sí, salvo que sean muy pocas y prefieras tener un margen. La calculadora las descuenta automáticamente con medidas estándar."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de pintura</h1>
+      <p class="lead">Cargá las medidas del ambiente y mirá cuántos litros necesitás y qué envases comprar.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="pintura" novalidate>
+        <div class="field wide">
+          <label for="f-modo">Cómo querés medir</label>
+          <select id="f-modo" name="modo">
+            <option value="ambiente">Con las medidas del ambiente</option>
+            <option value="directo">Ya sé los m² a pintar</option>
+          </select>
+        </div>
+        <div class="field" data-show-if="modo=ambiente">
+          <label for="f-largo">Largo <span class="unit">(m)</span></label>
+          <input id="f-largo" name="largo" type="text" inputmode="decimal" autocomplete="off" value="4">
+        </div>
+        <div class="field" data-show-if="modo=ambiente">
+          <label for="f-ancho">Ancho <span class="unit">(m)</span></label>
+          <input id="f-ancho" name="ancho" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field" data-show-if="modo=ambiente">
+          <label for="f-alto">Alto <span class="unit">(m)</span></label>
+          <input id="f-alto" name="alto" type="text" inputmode="decimal" autocomplete="off" value="2,6">
+        </div>
+        <div class="field" data-show-if="modo=ambiente">
+          <label for="f-puertas">Puertas</label>
+          <input id="f-puertas" name="puertas" type="text" inputmode="decimal" autocomplete="off" value="1">
+        </div>
+        <div class="field" data-show-if="modo=ambiente">
+          <label for="f-ventanas">Ventanas</label>
+          <input id="f-ventanas" name="ventanas" type="text" inputmode="decimal" autocomplete="off" value="1">
+        </div>
+        <div class="field" data-show-if="modo=directo" hidden>
+          <label for="f-superficie">Superficie <span class="unit">(m²)</span></label>
+          <input id="f-superficie" name="superficie" type="text" inputmode="decimal" autocomplete="off" value="30">
+        </div>
+        <div class="field">
+          <label for="f-manos">Manos</label>
+          <input id="f-manos" name="manos" type="text" inputmode="decimal" autocomplete="off" value="2">
+        </div>
+        <div class="field field-check" data-show-if="modo=ambiente">
+          <label><input type="checkbox" name="techo"> Pintar también el cielorraso</label>
+        </div>
+        <div class="field wide">
+          <label for="f-rendimiento">Rendimiento <span class="unit">(m² por litro)</span></label>
+          <input id="f-rendimiento" name="rendimiento" type="text" inputmode="decimal" autocomplete="off" value="10">
+          <small>Figura en el envase, por mano</small>
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Medí el largo, el ancho y el alto del ambiente.</span></li>
+        <li><span>Indicá puertas, ventanas y cuántas manos vas a dar.</span></li>
+        <li><span>Mirá los litros totales y la combinación de envases que conviene.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calcula la pintura</h2>
+      <p>La cuenta tiene tres partes: la superficie a pintar, la cantidad de manos y el rendimiento de la pintura.</p>
+      <p><strong>Litros = superficie × manos ÷ rendimiento</strong></p>
+      <p>La superficie de las paredes es el perímetro del ambiente por la altura. En un cuarto de 4 × 3 m con 2,6 m de alto, el perímetro es 14 m y las paredes suman 36,4 m². A eso se le restan las aberturas: la calculadora descuenta 1,6 m² por puerta y 1,5 m² por ventana. Si pintás el cielorraso, se suma largo × ancho.</p>
+      <h3>Qué rendimiento usar</h3>
+      <p>El rendimiento figura en el envase y está expresado por mano. Como referencia:</p>
+      <ul>
+        <li><strong>Látex interior:</strong> entre 10 y 12 m² por litro.</li>
+        <li><strong>Látex exterior o superficies rugosas:</strong> entre 6 y 8 m² por litro.</li>
+        <li><strong>Esmalte sintético:</strong> entre 10 y 14 m² por litro.</li>
+      </ul>
+      <p>Una pared nueva, porosa o con revoque grueso absorbe más pintura, y un cambio de color fuerte puede necesitar una tercera mano. En esos casos bajá el rendimiento o sumá una mano.</p>
+      <h3>Fijador y enduido</h3>
+      <p>La calculadora estima solo la pintura de terminación. En paredes nuevas o entizadas conviene dar antes una mano de fijador sellador, que se calcula igual: superficie dividido el rendimiento que indica su envase.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuántos m² rinde un litro de pintura?</summary><p>Un látex interior rinde entre 10 y 12 m² por litro y por mano sobre una pared lisa y sellada. En exteriores o superficies rugosas baja a 6 u 8 m² por litro.</p></details>
+      <details><summary>¿Cuánta pintura necesito para una habitación de 4 × 3?</summary><p>Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 10 m² por litro son cerca de 7 litros: alcanza con dos envases de 4 litros.</p></details>
+      <details><summary>¿Cuántas manos de pintura hay que dar?</summary><p>Dos manos es lo habitual. Si cambiás de un color oscuro a uno claro, o la pared es nueva, puede hacer falta una tercera.</p></details>
+      <details><summary>¿Cuánto rinde una lata de 20 litros?</summary><p>A 10 m² por litro, una lata de 20 litros cubre 200 m² en una mano, o 100 m² a dos manos.</p></details>
+      <details><summary>¿Tengo que descontar puertas y ventanas?</summary><p>Sí, salvo que sean muy pocas y prefieras tener un margen. La calculadora las descuenta automáticamente con medidas estándar.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

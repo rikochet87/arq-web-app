@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de escaleras: huella y contrahuella | CalcuObra</title>
+  <meta name="description" content="Calculá cuántos escalones lleva tu escalera y la medida de la huella y la contrahuella con la regla de Blondel. Gratis y al instante.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de escaleras: huella y contrahuella | CalcuObra">
+  <meta property="og:description" content="Calculá cuántos escalones lleva tu escalera y la medida de la huella y la contrahuella con la regla de Blondel. Gratis y al instante.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de escaleras","description":"Calculá cuántos escalones lleva tu escalera y la medida de la huella y la contrahuella con la regla de Blondel. Gratis y al instante.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuánto debe medir la huella y la contrahuella de una escalera?","acceptedAnswer":{"@type":"Answer","text":"Lo más cómodo es una contrahuella de entre 16 y 18 cm y una huella de entre 26 y 30 cm, de modo que dos contrahuellas más una huella sumen entre 60 y 64 cm."}},{"@type":"Question","name":"¿Cuántos escalones necesito para subir 2,70 m?","acceptedAnswer":{"@type":"Answer","text":"Con una contrahuella de 18 cm son 15 escalones. Con una más baja, de 17 cm, son 16 escalones de 16,9 cm."}},{"@type":"Question","name":"¿Qué es la regla de Blondel?","acceptedAnswer":{"@type":"Answer","text":"Es la fórmula que relaciona la huella y la contrahuella con el largo del paso: 2 contrahuellas + 1 huella = 63 cm, con un margen de 60 a 64 cm."}},{"@type":"Question","name":"¿Cuánto lugar ocupa una escalera?","acceptedAnswer":{"@type":"Answer","text":"El desarrollo horizontal es la huella por la cantidad de huellas. Una escalera recta de 15 escalones con huella de 27 cm ocupa 3,78 m de largo, sin contar descansos."}},{"@type":"Question","name":"¿Por qué hay una huella menos que contrahuellas?","acceptedAnswer":{"@type":"Answer","text":"Porque el último escalón llega directamente al piso superior, que hace de huella. Si hay 15 contrahuellas, hay 14 huellas."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de escaleras</h1>
+      <p class="lead">Cargá la altura a salvar y mirá cuántos escalones lleva y cuánto miden la huella y la contrahuella.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="escaleras" novalidate>
+        <div class="field wide">
+          <label for="f-altura">Altura a salvar <span class="unit">(cm)</span></label>
+          <input id="f-altura" name="altura" type="text" inputmode="decimal" autocomplete="off" value="270">
+          <small>De piso terminado a piso terminado</small>
+        </div>
+        <div class="field">
+          <label for="f-maxc">Contrahuella máxima <span class="unit">(cm)</span></label>
+          <input id="f-maxc" name="maxc" type="text" inputmode="decimal" autocomplete="off" value="18">
+        </div>
+        <div class="field">
+          <label for="f-largoDisp">Largo disponible <span class="unit">(cm)</span></label>
+          <input id="f-largoDisp" name="largoDisp" type="text" inputmode="decimal" autocomplete="off" value="">
+          <small>Opcional</small>
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Medí la altura entre el piso de abajo y el de arriba, ya terminados.</span></li>
+        <li><span>Si el espacio es limitado, cargá el largo disponible.</span></li>
+        <li><span>Mirá los escalones, sus medidas y si la escalera resulta cómoda.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calcula una escalera</h2>
+      <p>Una escalera cómoda tiene todos los escalones iguales y una relación equilibrada entre lo que se sube y lo que se avanza en cada paso. La cuenta se hace en tres pasos:</p>
+      <ul>
+        <li><strong>Cantidad de escalones:</strong> altura a salvar ÷ contrahuella máxima, redondeando para arriba. Para 270 cm y 18 cm de máxima son 15 escalones.</li>
+        <li><strong>Contrahuella real:</strong> altura ÷ cantidad de escalones. En el ejemplo, 270 ÷ 15 = 18 cm.</li>
+        <li><strong>Huella:</strong> se obtiene con la regla de Blondel.</li>
+      </ul>
+      <h3>La regla de Blondel</h3>
+      <p><strong>2 contrahuellas + 1 huella = entre 60 y 64 cm</strong>, que es el largo de un paso normal. Con una contrahuella de 18 cm, la huella ideal es 63 − 36 = 27 cm.</p>
+      <p>La cantidad de huellas es siempre una menos que la de contrahuellas, porque el último escalón es el piso de arriba. Por eso 15 escalones tienen 14 huellas y un desarrollo horizontal de 14 × 27 = 378 cm.</p>
+      <h3>Medidas de referencia</h3>
+      <p>Para una escalera principal de vivienda se suele pedir una contrahuella de hasta 18 cm y una huella de al menos 26 cm. Cada municipio fija sus propios valores en el código de edificación, así que verificá el de tu localidad antes de construir.</p>
+      <p>Si cargás el largo disponible, la calculadora reparte ese largo entre las huellas y te avisa si la escalera queda demasiado empinada.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuánto debe medir la huella y la contrahuella de una escalera?</summary><p>Lo más cómodo es una contrahuella de entre 16 y 18 cm y una huella de entre 26 y 30 cm, de modo que dos contrahuellas más una huella sumen entre 60 y 64 cm.</p></details>
+      <details><summary>¿Cuántos escalones necesito para subir 2,70 m?</summary><p>Con una contrahuella de 18 cm son 15 escalones. Con una más baja, de 17 cm, son 16 escalones de 16,9 cm.</p></details>
+      <details><summary>¿Qué es la regla de Blondel?</summary><p>Es la fórmula que relaciona la huella y la contrahuella con el largo del paso: 2 contrahuellas + 1 huella = 63 cm, con un margen de 60 a 64 cm.</p></details>
+      <details><summary>¿Cuánto lugar ocupa una escalera?</summary><p>El desarrollo horizontal es la huella por la cantidad de huellas. Una escalera recta de 15 escalones con huella de 27 cm ocupa 3,78 m de largo, sin contar descansos.</p></details>
+      <details><summary>¿Por qué hay una huella menos que contrahuellas?</summary><p>Porque el último escalón llega directamente al piso superior, que hace de huella. Si hay 15 contrahuellas, hay 14 huellas.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

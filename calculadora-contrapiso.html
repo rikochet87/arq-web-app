@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de contrapiso y carpeta | CalcuObra</title>
+  <meta name="description" content="Calculá los m³ y los materiales para hacer un contrapiso y su carpeta: cemento, cal, arena y cascote según la superficie y el espesor.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de contrapiso y carpeta | CalcuObra">
+  <meta property="og:description" content="Calculá los m³ y los materiales para hacer un contrapiso y su carpeta: cemento, cal, arena y cascote según la superficie y el espesor.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de contrapiso y carpeta","description":"Calculá los m³ y los materiales para hacer un contrapiso y su carpeta: cemento, cal, arena y cascote según la superficie y el espesor.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuántos m³ de contrapiso necesito?","acceptedAnswer":{"@type":"Answer","text":"Multiplicá la superficie por el espesor en metros. Para 20 m² y 10 cm de espesor son 20 × 0,10 = 2 m³, más un 5 % de desperdicio."}},{"@type":"Question","name":"¿Qué espesor debe tener un contrapiso?","acceptedAnswer":{"@type":"Answer","text":"Sobre terreno natural, entre 10 y 12 cm. Sobre losa alcanza con 5 a 8 cm, lo necesario para dar nivel y tapar cañerías."}},{"@type":"Question","name":"¿Cuánto cemento lleva una carpeta?","acceptedAnswer":{"@type":"Answer","text":"Una carpeta de 2 cm con mezcla 1:3 lleva cerca de 10 kg de cemento por m², es decir, una bolsa de 25 kg cada 2,5 m²."}},{"@type":"Question","name":"¿Qué diferencia hay entre contrapiso y carpeta?","acceptedAnswer":{"@type":"Answer","text":"El contrapiso es la capa gruesa que da el nivel. La carpeta es una capa fina de cemento y arena que va arriba y deja la superficie lisa para colocar el piso."}},{"@type":"Question","name":"¿Puedo hacer el contrapiso con piedra en lugar de cascote?","acceptedAnswer":{"@type":"Answer","text":"Sí. Un hormigón pobre 1:3:5 con piedra partida es más resistente que el de cascotes y conviene en cocheras o donde va a haber peso."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de contrapiso y carpeta</h1>
+      <p class="lead">Cargá la superficie y los espesores y mirá el volumen y los materiales que necesitás.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="contrapiso" novalidate>
+        <div class="field">
+          <label for="f-largo">Largo <span class="unit">(m)</span></label>
+          <input id="f-largo" name="largo" type="text" inputmode="decimal" autocomplete="off" value="4">
+        </div>
+        <div class="field">
+          <label for="f-ancho">Ancho <span class="unit">(m)</span></label>
+          <input id="f-ancho" name="ancho" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field">
+          <label for="f-espesor">Espesor del contrapiso <span class="unit">(cm)</span></label>
+          <input id="f-espesor" name="espesor" type="text" inputmode="decimal" autocomplete="off" value="10">
+        </div>
+        <div class="field">
+          <label for="f-desperdicio">Desperdicio <span class="unit">(%)</span></label>
+          <input id="f-desperdicio" name="desperdicio" type="text" inputmode="decimal" autocomplete="off" value="5">
+        </div>
+        <div class="field wide">
+          <label for="f-mezcla">Mezcla del contrapiso</label>
+          <select id="f-mezcla" name="mezcla">
+            <option value="ccas">1/8:1:4:8 — de cascotes (cemento : cal : arena : cascote)</option>
+            <option value="h135">1:3:5 — hormigón pobre (cemento : arena : piedra)</option>
+          </select>
+        </div>
+        <div class="field field-check">
+          <label><input type="checkbox" name="carpeta" checked> Incluir carpeta de nivelación</label>
+        </div>
+        <div class="field" data-show-if="carpeta=1">
+          <label for="f-espCarpeta">Espesor de la carpeta <span class="unit">(cm)</span></label>
+          <input id="f-espCarpeta" name="espCarpeta" type="text" inputmode="decimal" autocomplete="off" value="2">
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Medí el largo y el ancho de la superficie en metros.</span></li>
+        <li><span>Indicá el espesor del contrapiso y, si va, el de la carpeta.</span></li>
+        <li><span>Mirá los m³ de cada capa y el total de materiales a comprar.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calcula un contrapiso</h2>
+      <p>El contrapiso es la capa que va sobre el terreno o la losa y da el nivel y la pendiente al piso. Arriba lleva una carpeta fina de cemento y arena, que deja la superficie lisa para colocar el piso.</p>
+      <p><strong>Volumen = largo × ancho × espesor</strong>, con el espesor en metros. Un contrapiso de 4 × 3 m y 10 cm de espesor son 4 × 3 × 0,10 = 1,2 m³, y su carpeta de 2 cm, 0,24 m³.</p>
+      <h3>Qué espesor usar</h3>
+      <ul>
+        <li><strong>Contrapiso sobre terreno natural:</strong> entre 10 y 12 cm.</li>
+        <li><strong>Contrapiso sobre losa:</strong> entre 5 y 8 cm.</li>
+        <li><strong>Carpeta de nivelación:</strong> entre 2 y 3 cm.</li>
+      </ul>
+      <h3>Qué mezcla lleva</h3>
+      <p>El contrapiso tradicional es el hormigón de cascotes, con proporción 1/8:1:4:8 de cemento, cal, arena y cascote de ladrillo. Es económico y aprovecha el escombro de la propia obra. La alternativa es un hormigón pobre 1:3:5 de cemento, arena y piedra, más resistente y recomendable donde va a haber cargas o tránsito de vehículos.</p>
+      <p>La carpeta se calcula con mezcla 1:3 de cemento y arena. Si va sobre terreno o en un baño, se le agrega hidrófugo en el agua de amasado según indique el fabricante.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuántos m³ de contrapiso necesito?</summary><p>Multiplicá la superficie por el espesor en metros. Para 20 m² y 10 cm de espesor son 20 × 0,10 = 2 m³, más un 5 % de desperdicio.</p></details>
+      <details><summary>¿Qué espesor debe tener un contrapiso?</summary><p>Sobre terreno natural, entre 10 y 12 cm. Sobre losa alcanza con 5 a 8 cm, lo necesario para dar nivel y tapar cañerías.</p></details>
+      <details><summary>¿Cuánto cemento lleva una carpeta?</summary><p>Una carpeta de 2 cm con mezcla 1:3 lleva cerca de 10 kg de cemento por m², es decir, una bolsa de 25 kg cada 2,5 m².</p></details>
+      <details><summary>¿Qué diferencia hay entre contrapiso y carpeta?</summary><p>El contrapiso es la capa gruesa que da el nivel. La carpeta es una capa fina de cemento y arena que va arriba y deja la superficie lisa para colocar el piso.</p></details>
+      <details><summary>¿Puedo hacer el contrapiso con piedra en lugar de cascote?</summary><p>Sí. Un hormigón pobre 1:3:5 con piedra partida es más resistente que el de cascotes y conviene en cocheras o donde va a haber peso.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

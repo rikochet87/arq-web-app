@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de ladrillos por m² y mortero | CalcuObra</title>
+  <meta name="description" content="Calculá cuántos ladrillos entran por m² de pared y cuánto cemento, cal y arena lleva el mortero. Ladrillo común, hueco y bloque. Gratis.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de ladrillos por m² y mortero | CalcuObra">
+  <meta property="og:description" content="Calculá cuántos ladrillos entran por m² de pared y cuánto cemento, cal y arena lleva el mortero. Ladrillo común, hueco y bloque. Gratis.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de ladrillos por m²","description":"Calculá cuántos ladrillos entran por m² de pared y cuánto cemento, cal y arena lleva el mortero. Ladrillo común, hueco y bloque. Gratis.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuántos ladrillos comunes entran en un m²?","acceptedAnswer":{"@type":"Answer","text":"En una pared de 15 cm entran unos 60 ladrillos comunes por m², y en una pared de 30 cm, unos 120. La cifra exacta cambia según la medida real del ladrillo y el espesor de la junta."}},{"@type":"Question","name":"¿Cuántos ladrillos huecos de 12×18×33 entran por m²?","acceptedAnswer":{"@type":"Answer","text":"Alrededor de 15 por m² con una junta de 1,5 cm. Es la misma cantidad para los de 8 y 18 cm de espesor, porque la cara vista es la misma."}},{"@type":"Question","name":"¿Qué mortero pide el reglamento CIRSOC para una pared portante?","acceptedAnswer":{"@type":"Answer","text":"El CIRSOC 501-E admite tres tipos, en proporciones de cemento, cal y arena: E (1:¼:3), I (1:½:4) y N (1:1:6). No admite morteros solo de cal."}},{"@type":"Question","name":"¿Cuánta mezcla lleva un m² de pared?","acceptedAnswer":{"@type":"Answer","text":"Una pared de 15 de ladrillo común lleva cerca de 0,03 m³ de mortero por m². Una pared de ladrillo hueco de 12 lleva menos de la mitad, porque tiene muchas menos juntas."}},{"@type":"Question","name":"¿Tengo que descontar puertas y ventanas?","acceptedAnswer":{"@type":"Answer","text":"Sí. Sumá la superficie de todas las aberturas en m² y cargala en el campo «Aberturas a descontar». Una puerta estándar ocupa cerca de 1,6 m²."}},{"@type":"Question","name":"¿Las medidas de los ladrillos son siempre iguales?","acceptedAnswer":{"@type":"Answer","text":"No. El ladrillo común es artesanal y varía según la ladrillera. Si el tuyo es distinto, elegí «Otras medidas» y cargá las medidas reales."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de ladrillos por m²</h1>
+      <p class="lead">Cargá las medidas de la pared y mirá cuántos ladrillos, cemento, cal y arena tenés que comprar.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="ladrillos" novalidate>
+        <div class="field">
+          <label for="f-largo">Largo de la pared <span class="unit">(m)</span></label>
+          <input id="f-largo" name="largo" type="text" inputmode="decimal" autocomplete="off" value="5">
+        </div>
+        <div class="field">
+          <label for="f-alto">Alto de la pared <span class="unit">(m)</span></label>
+          <input id="f-alto" name="alto" type="text" inputmode="decimal" autocomplete="off" value="2,6">
+        </div>
+        <div class="field wide">
+          <label for="f-tipo">Tipo de ladrillo</label>
+          <select id="f-tipo" name="tipo">
+            <option value="comun15">Ladrillo común — pared de 15</option>
+            <option value="comun30">Ladrillo común — pared de 30</option>
+            <option value="portante12">Bloque cerámico portante 12×19×33</option>
+            <option value="portante18">Bloque cerámico portante 18×19×33</option>
+            <option value="hueco8">Hueco cerámico no portante 8×18×33</option>
+            <option value="hueco12">Hueco cerámico no portante 12×18×33</option>
+            <option value="hueco18">Hueco cerámico no portante 18×18×33</option>
+            <option value="bloque13">Bloque de hormigón 13×19×39</option>
+            <option value="bloque19">Bloque de hormigón 19×19×39</option>
+            <option value="custom">Otras medidas…</option>
+          </select>
+        </div>
+        <div class="field" data-show-if="tipo=custom" hidden>
+          <label for="f-ladLargo">Largo del ladrillo <span class="unit">(cm)</span></label>
+          <input id="f-ladLargo" name="ladLargo" type="text" inputmode="decimal" autocomplete="off" value="24">
+        </div>
+        <div class="field" data-show-if="tipo=custom" hidden>
+          <label for="f-ladAlto">Alto del ladrillo <span class="unit">(cm)</span></label>
+          <input id="f-ladAlto" name="ladAlto" type="text" inputmode="decimal" autocomplete="off" value="5">
+        </div>
+        <div class="field wide" data-show-if="tipo=custom" hidden>
+          <label for="f-ladEspesor">Espesor de la pared <span class="unit">(cm)</span></label>
+          <input id="f-ladEspesor" name="ladEspesor" type="text" inputmode="decimal" autocomplete="off" value="11,5">
+        </div>
+        <div class="field">
+          <label for="f-aberturas">Aberturas a descontar <span class="unit">(m²)</span></label>
+          <input id="f-aberturas" name="aberturas" type="text" inputmode="decimal" autocomplete="off" value="0">
+          <small>Puertas y ventanas</small>
+        </div>
+        <div class="field">
+          <label for="f-junta">Junta <span class="unit">(cm)</span></label>
+          <input id="f-junta" name="junta" type="text" inputmode="decimal" autocomplete="off" value="1,5">
+        </div>
+        <div class="field wide">
+          <label for="f-mezcla">Mortero de asiento</label>
+          <select id="f-mezcla" name="mezcla">
+            <option value="mI">Tipo I — 1:½:4, resistencia intermedia</option>
+            <option value="mE">Tipo E — 1:¼:3, resistencia elevada</option>
+            <option value="mN">Tipo N — 1:1:6, resistencia normal</option>
+            <option value="m13">1:3 — cementicio (cemento : arena)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-desperdicio">Desperdicio <span class="unit">(%)</span></label>
+          <input id="f-desperdicio" name="desperdicio" type="text" inputmode="decimal" autocomplete="off" value="5">
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Medí el largo y el alto de la pared en metros y restá puertas y ventanas.</span></li>
+        <li><span>Elegí el ladrillo que vas a usar y el espesor de la junta.</span></li>
+        <li><span>Copiá el resultado o mandalo por WhatsApp al corralón.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calcula la cantidad de ladrillos</h2>
+      <p>Cada ladrillo ocupa en la pared su cara vista más la junta de mezcla que lo rodea. Por eso la cuenta no se hace solo con la medida del ladrillo, sino sumándole la junta:</p>
+      <p><strong>Ladrillos por m² = 1 ÷ [(largo + junta) × (alto + junta)]</strong>, con todas las medidas en metros.</p>
+      <p>Un ladrillo común de 24 × 5 cm con junta de 1,5 cm ocupa 0,255 × 0,065 m, así que entran unos 60 por m² en una pared de 15. Si la pared es de 30 (doble), el ladrillo se coloca atravesado y la cantidad sube a unos 120 por m². En un hueco cerámico de 18 × 33 entran alrededor de 15 por m², y en un bloque de hormigón de 19 × 39, unos 12,5.</p>
+      <h3>Cuánto mortero lleva</h3>
+      <p>El mortero es todo el volumen de la pared que no es ladrillo. La calculadora toma el volumen total (superficie × espesor) y le resta el volumen que ocupan los ladrillos. Después reparte ese volumen en cemento, cal y arena según la mezcla que elijas.</p>
+      <p>Los morteros de asiento son los tres tipos del reglamento CIRSOC 501-E, en proporciones de cemento, cal y arena:</p>
+      <ul>
+        <li><strong>Tipo E (1:¼:3):</strong> resistencia elevada.</li>
+        <li><strong>Tipo I (1:½:4):</strong> resistencia intermedia, el más usado en muros portantes.</li>
+        <li><strong>Tipo N (1:1:6):</strong> resistencia normal.</li>
+        <li><strong>Cementicio (1:3):</strong> sin cal, obligatorio en las juntas que llevan hierro.</li>
+      </ul>
+      <p>El reglamento no admite morteros que tengan solo cal como ligante, y pide que la arena sea entre 2,25 y 3 veces el volumen de cemento más cal.</p>
+      <h3>Ladrillo portante y ladrillo de cerramiento</h3>
+      <p>No todos los ladrillos sirven para sostener una losa o un techo. Según el CIRSOC 501-E, un muro portante se hace con ladrillo macizo de 11 cm o más, o con bloque portante (cerámico o de hormigón) de 12 cm o más. El ladrillo hueco común, de tubos horizontales, es de cerramiento: sirve para tabiques y para rellenar una estructura de hormigón, no para cargar peso.</p>
+      <h3>Por qué sumar desperdicio</h3>
+      <p>Siempre se rompen ladrillos en el traslado y en los cortes de esquinas y aberturas. Un 5 % es lo habitual; si la pared tiene muchos recortes, conviene subirlo a 8 o 10 %.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuántos ladrillos comunes entran en un m²?</summary><p>En una pared de 15 cm entran unos 60 ladrillos comunes por m², y en una pared de 30 cm, unos 120. La cifra exacta cambia según la medida real del ladrillo y el espesor de la junta.</p></details>
+      <details><summary>¿Cuántos ladrillos huecos de 12×18×33 entran por m²?</summary><p>Alrededor de 15 por m² con una junta de 1,5 cm. Es la misma cantidad para los de 8 y 18 cm de espesor, porque la cara vista es la misma.</p></details>
+      <details><summary>¿Qué mortero pide el reglamento CIRSOC para una pared portante?</summary><p>El CIRSOC 501-E admite tres tipos, en proporciones de cemento, cal y arena: E (1:¼:3), I (1:½:4) y N (1:1:6). No admite morteros solo de cal.</p></details>
+      <details><summary>¿Cuánta mezcla lleva un m² de pared?</summary><p>Una pared de 15 de ladrillo común lleva cerca de 0,03 m³ de mortero por m². Una pared de ladrillo hueco de 12 lleva menos de la mitad, porque tiene muchas menos juntas.</p></details>
+      <details><summary>¿Tengo que descontar puertas y ventanas?</summary><p>Sí. Sumá la superficie de todas las aberturas en m² y cargala en el campo «Aberturas a descontar». Una puerta estándar ocupa cerca de 1,6 m².</p></details>
+      <details><summary>¿Las medidas de los ladrillos son siempre iguales?</summary><p>No. El ladrillo común es artesanal y varía según la ladrillera. Si el tuyo es distinto, elegí «Otras medidas» y cargá las medidas reales.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

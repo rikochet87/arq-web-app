@@ -1,0 +1,17 @@
+# Sistema operativo
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+
+# Node (hoy no hay dependencias, por si se agregan)
+node_modules/
+npm-debug.log*
+
+# Configuración local y secretos
+.env
+.env.*
+.claude/settings.local.json

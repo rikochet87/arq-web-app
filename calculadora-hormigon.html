@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de hormigón: m³, cemento y arena | CalcuObra</title>
+  <meta name="description" content="Calculá los m³ de hormigón de una losa, viga o columna y cuántas bolsas de cemento, arena y piedra necesitás. Gratis y sin registrarte.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de hormigón: m³, cemento y arena | CalcuObra">
+  <meta property="og:description" content="Calculá los m³ de hormigón de una losa, viga o columna y cuántas bolsas de cemento, arena y piedra necesitás. Gratis y sin registrarte.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de hormigón","description":"Calculá los m³ de hormigón de una losa, viga o columna y cuántas bolsas de cemento, arena y piedra necesitás. Gratis y sin registrarte.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuántas bolsas de cemento lleva un m³ de hormigón?","acceptedAnswer":{"@type":"Answer","text":"Depende de la dosificación. Un hormigón 1:3:3 lleva unos 310 kg por m³, que son unas 12 bolsas y media de 25 kg. Uno más cargado, 1:2:3, lleva unos 370 kg, cerca de 15 bolsas."}},{"@type":"Question","name":"¿Cuánto hormigón necesito para una losa?","acceptedAnswer":{"@type":"Answer","text":"Multiplicá largo por ancho por espesor, todo en metros. Una losa de 4 × 3 m con 12 cm de espesor lleva 1,44 m³, más un 5 % de desperdicio."}},{"@type":"Question","name":"¿Cuántos m³ de arena y piedra lleva un m³ de hormigón?","acceptedAnswer":{"@type":"Answer","text":"En un 1:3:3, unos 0,66 m³ de arena y 0,66 m³ de piedra partida. La suma supera 1 m³ porque los materiales se acomodan entre sí al mezclarse."}},{"@type":"Question","name":"¿Conviene hacerlo en obra o pedir hormigón elaborado?","acceptedAnswer":{"@type":"Answer","text":"Para volúmenes chicos suele prepararse en obra. A partir de algunos metros cúbicos, o cuando hay que llenar todo de una vez como en una losa, el elaborado ahorra tiempo y asegura una calidad pareja."}},{"@type":"Question","name":"¿Qué desperdicio tengo que considerar?","acceptedAnswer":{"@type":"Answer","text":"Un 5 % cubre lo que se pierde en el traslado, lo que queda en la hormigonera y las diferencias de encofrado. En excavaciones irregulares conviene subirlo a 10 %."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de hormigón</h1>
+      <p class="lead">Cargá las medidas y mirá los metros cúbicos y los materiales para prepararlo en obra.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="hormigon" novalidate>
+        <div class="field wide">
+          <label for="f-forma">Qué vas a hormigonar</label>
+          <select id="f-forma" name="forma">
+            <option value="losa">Losa, platea o piso</option>
+            <option value="rect">Viga, columna o zapata rectangular</option>
+            <option value="circ">Columna o pilote circular</option>
+          </select>
+        </div>
+        <div class="field" data-show-if="forma=losa">
+          <label for="f-largo">Largo <span class="unit">(m)</span></label>
+          <input id="f-largo" name="largo" type="text" inputmode="decimal" autocomplete="off" value="4">
+        </div>
+        <div class="field" data-show-if="forma=losa">
+          <label for="f-ancho">Ancho <span class="unit">(m)</span></label>
+          <input id="f-ancho" name="ancho" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field" data-show-if="forma=losa">
+          <label for="f-espesor">Espesor <span class="unit">(cm)</span></label>
+          <input id="f-espesor" name="espesor" type="text" inputmode="decimal" autocomplete="off" value="12">
+        </div>
+        <div class="field" data-show-if="forma=rect" hidden>
+          <label for="f-ladoA">Lado A <span class="unit">(cm)</span></label>
+          <input id="f-ladoA" name="ladoA" type="text" inputmode="decimal" autocomplete="off" value="20">
+        </div>
+        <div class="field" data-show-if="forma=rect" hidden>
+          <label for="f-ladoB">Lado B <span class="unit">(cm)</span></label>
+          <input id="f-ladoB" name="ladoB" type="text" inputmode="decimal" autocomplete="off" value="20">
+        </div>
+        <div class="field" data-show-if="forma=rect" hidden>
+          <label for="f-altoRect">Largo o alto <span class="unit">(m)</span></label>
+          <input id="f-altoRect" name="altoRect" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field" data-show-if="forma=circ" hidden>
+          <label for="f-diametro">Diámetro <span class="unit">(cm)</span></label>
+          <input id="f-diametro" name="diametro" type="text" inputmode="decimal" autocomplete="off" value="30">
+        </div>
+        <div class="field" data-show-if="forma=circ" hidden>
+          <label for="f-altoCirc">Alto <span class="unit">(m)</span></label>
+          <input id="f-altoCirc" name="altoCirc" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field" data-show-if="forma=rect|circ" hidden>
+          <label for="f-cantidad">Cantidad</label>
+          <input id="f-cantidad" name="cantidad" type="text" inputmode="decimal" autocomplete="off" value="1">
+        </div>
+        <div class="field">
+          <label for="f-desperdicio">Desperdicio <span class="unit">(%)</span></label>
+          <input id="f-desperdicio" name="desperdicio" type="text" inputmode="decimal" autocomplete="off" value="5">
+        </div>
+        <div class="field wide">
+          <label for="f-mezcla">Dosificación</label>
+          <select id="f-mezcla" name="mezcla">
+            <option value="h133">1:3:3 — uso general (cemento : arena : piedra)</option>
+            <option value="h123">1:2:3 — más cemento (cemento : arena : piedra)</option>
+            <option value="h135">1:3:5 — hormigón pobre (cemento : arena : piedra)</option>
+          </select>
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Elegí la forma: losa, viga o columna rectangular, o columna circular.</span></li>
+        <li><span>Cargá las medidas y la dosificación que vas a usar.</span></li>
+        <li><span>Obtenés los m³ y las bolsas de cemento, la arena y la piedra.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calcula el volumen de hormigón</h2>
+      <p>El hormigón se compra y se prepara por metro cúbico, así que el primer paso es siempre calcular el volumen de lo que vas a llenar:</p>
+      <ul>
+        <li><strong>Losa, platea o piso:</strong> largo × ancho × espesor. Una losa de 4 × 3 m y 12 cm de espesor son 4 × 3 × 0,12 = 1,44 m³.</li>
+        <li><strong>Viga o columna rectangular:</strong> lado A × lado B × largo. Una columna de 20 × 20 cm y 3 m de alto son 0,12 m³.</li>
+        <li><strong>Columna circular:</strong> 3,14 × radio² × alto.</li>
+      </ul>
+      <h3>Cuánto cemento, arena y piedra lleva un m³</h3>
+      <p>La dosificación indica las partes de cada material en volumen. En un hormigón 1:3:3 va una parte de cemento, tres de arena y tres de piedra. Como los materiales se acomodan entre sí al mezclarse, un balde de cada uno no rinde tres baldes de hormigón: la calculadora usa el método de los coeficientes de aporte, que tiene en cuenta ese acomodamiento.</p>
+      <p>Para un 1:3:3 el resultado es de unos 310 kg de cemento (unas 12 bolsas y media de 25 kg), 0,66 m³ de arena y 0,66 m³ de piedra por cada m³ de hormigón.</p>
+      <h3>Importante en elementos estructurales</h3>
+      <p>Las cantidades sirven para presupuestar y comprar. El reglamento CIRSOC 201 especifica el hormigón estructural por su clase de resistencia (H-20, H-25 y así), no por partes en volumen: la resistencia que necesita una losa, una viga o una columna la define el cálculo, y con ella la dosificación. Para los encadenados de una vivienda de mampostería, el CIRSOC 501-E pide como mínimo 13 MPa y 250 kg de cemento por m³. Si el elemento sostiene peso, consultá con el profesional a cargo de la obra.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuántas bolsas de cemento lleva un m³ de hormigón?</summary><p>Depende de la dosificación. Un hormigón 1:3:3 lleva unos 310 kg por m³, que son unas 12 bolsas y media de 25 kg. Uno más cargado, 1:2:3, lleva unos 370 kg, cerca de 15 bolsas.</p></details>
+      <details><summary>¿Cuánto hormigón necesito para una losa?</summary><p>Multiplicá largo por ancho por espesor, todo en metros. Una losa de 4 × 3 m con 12 cm de espesor lleva 1,44 m³, más un 5 % de desperdicio.</p></details>
+      <details><summary>¿Cuántos m³ de arena y piedra lleva un m³ de hormigón?</summary><p>En un 1:3:3, unos 0,66 m³ de arena y 0,66 m³ de piedra partida. La suma supera 1 m³ porque los materiales se acomodan entre sí al mezclarse.</p></details>
+      <details><summary>¿Conviene hacerlo en obra o pedir hormigón elaborado?</summary><p>Para volúmenes chicos suele prepararse en obra. A partir de algunos metros cúbicos, o cuando hay que llenar todo de una vez como en una losa, el elaborado ahorra tiempo y asegura una calidad pareja.</p></details>
+      <details><summary>¿Qué desperdicio tengo que considerar?</summary><p>Un 5 % cubre lo que se pierde en el traslado, lo que queda en la hormigonera y las diferencias de encofrado. En excavaciones irregulares conviene subirlo a 10 %.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

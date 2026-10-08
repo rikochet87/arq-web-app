@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculadora de cerámicos y pisos por m² | CalcuObra</title>
+  <meta name="description" content="Calculá cuántas cajas de cerámicos o porcelanato necesitás, con desperdicio incluido, y cuánto adhesivo y pastina comprar. Gratis.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Calculadora de cerámicos y pisos por m² | CalcuObra">
+  <meta property="og:description" content="Calculá cuántas cajas de cerámicos o porcelanato necesitás, con desperdicio incluido, y cuánto adhesivo y pastina comprar. Gratis.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261006">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Calculadora de cerámicos y pisos","description":"Calculá cuántas cajas de cerámicos o porcelanato necesitás, con desperdicio incluido, y cuánto adhesivo y pastina comprar. Gratis.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Cuántas cajas de cerámicos necesito para 20 m²?","acceptedAnswer":{"@type":"Answer","text":"Con 10 % de desperdicio son 22 m². Dividí ese número por los m² que trae la caja y redondeá para arriba: si la caja trae 2 m² son 11 cajas, y si trae 1,44 m² son 16."}},{"@type":"Question","name":"¿Cuánto desperdicio hay que calcular en cerámicos?","acceptedAnswer":{"@type":"Answer","text":"Un 10 % para colocación recta y un 15 % para colocación en diagonal. En ambientes con muchos recortes o con piezas muy grandes conviene sumar un poco más."}},{"@type":"Question","name":"¿Cuánto rinde una bolsa de adhesivo de 30 kg?","acceptedAnswer":{"@type":"Answer","text":"Con llana de 8 mm rinde unos 7 m², y con llana de 10 mm, unos 6 m². El rendimiento real depende de lo pareja que esté la base."}},{"@type":"Question","name":"¿Cuánta pastina necesito?","acceptedAnswer":{"@type":"Answer","text":"Para piezas de 60 × 60 con junta de 3 mm, alrededor de 150 gramos por m². Con piezas chicas, de 20 × 20, el consumo se triplica."}},{"@type":"Question","name":"¿Sirve para revestimientos de pared?","acceptedAnswer":{"@type":"Answer","text":"Sí. En lugar del largo y el ancho del ambiente, cargá el largo y el alto de la pared a revestir."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261006"></script>
+  <script defer src="lib/calc.js?v=20261006"></script>
+  <script defer src="main.js?v=20261006"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Calculadora gratis · Sin registro</p>
+      <h1>Calculadora de cerámicos y pisos</h1>
+      <p class="lead">Cargá las medidas del ambiente y de la pieza y mirá cuántas cajas, adhesivo y pastina comprar.</p>
+      <div class="tool-card" data-state="idle">
+        <form class="tool-form" data-calc="ceramicos" novalidate>
+        <div class="field">
+          <label for="f-largo">Largo del ambiente <span class="unit">(m)</span></label>
+          <input id="f-largo" name="largo" type="text" inputmode="decimal" autocomplete="off" value="4">
+        </div>
+        <div class="field">
+          <label for="f-ancho">Ancho del ambiente <span class="unit">(m)</span></label>
+          <input id="f-ancho" name="ancho" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field">
+          <label for="f-piezaLargo">Largo de la pieza <span class="unit">(cm)</span></label>
+          <input id="f-piezaLargo" name="piezaLargo" type="text" inputmode="decimal" autocomplete="off" value="60">
+        </div>
+        <div class="field">
+          <label for="f-piezaAncho">Ancho de la pieza <span class="unit">(cm)</span></label>
+          <input id="f-piezaAncho" name="piezaAncho" type="text" inputmode="decimal" autocomplete="off" value="60">
+        </div>
+        <div class="field">
+          <label for="f-m2caja">m² por caja</label>
+          <input id="f-m2caja" name="m2caja" type="text" inputmode="decimal" autocomplete="off" value="1,44">
+          <small>Figura en la caja</small>
+        </div>
+        <div class="field">
+          <label for="f-desperdicio">Desperdicio <span class="unit">(%)</span></label>
+          <input id="f-desperdicio" name="desperdicio" type="text" inputmode="decimal" autocomplete="off" value="10">
+          <small>15 % si va en diagonal</small>
+        </div>
+        <div class="field">
+          <label for="f-llana">Llana dentada</label>
+          <select id="f-llana" name="llana">
+            <option value="6">6 mm</option>
+            <option value="8">8 mm</option>
+            <option value="10" selected>10 mm</option>
+            <option value="12">12 mm</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-junta">Junta <span class="unit">(mm)</span></label>
+          <input id="f-junta" name="junta" type="text" inputmode="decimal" autocomplete="off" value="3">
+        </div>
+        <div class="field wide">
+          <label for="f-espesorPieza">Espesor de la pieza <span class="unit">(mm)</span></label>
+          <input id="f-espesorPieza" name="espesorPieza" type="text" inputmode="decimal" autocomplete="off" value="8">
+        </div>
+        </form>
+        <div class="tool-result" data-result aria-live="polite">
+          <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
+        </div>
+      </div>
+      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (debajo de la calculadora) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section">
+      <h2>Cómo usarla</h2>
+      <ol class="steps">
+        <li><span>Medí el largo y el ancho del ambiente en metros.</span></li>
+        <li><span>Cargá la medida de la pieza y los m² que trae cada caja.</span></li>
+        <li><span>Mirá las cajas a comprar, el adhesivo y la pastina.</span></li>
+      </ol>
+    </section>
+
+    <section class="section prose">
+      <h2>Cómo se calculan las cajas de cerámicos</h2>
+      <p>Los cerámicos y porcelanatos se venden por caja, y cada caja indica cuántos m² cubre. La cuenta es:</p>
+      <p><strong>Cajas = superficie × (1 + desperdicio) ÷ m² por caja</strong>, redondeando siempre para arriba.</p>
+      <p>Un ambiente de 4 × 3 m tiene 12 m². Con 10 % de desperdicio hay que comprar 13,2 m², y si la caja trae 1,44 m² son 10 cajas.</p>
+      <h3>Cuánto desperdicio sumar</h3>
+      <ul>
+        <li><strong>Colocación recta:</strong> 10 %.</li>
+        <li><strong>Colocación en diagonal o con muchos recortes:</strong> 15 %.</li>
+        <li><strong>Piezas grandes en ambientes chicos:</strong> hasta 20 %, porque cada corte desperdicia más material.</li>
+      </ul>
+      <p>Conviene comprar todo junto y guardar algunas piezas de repuesto: las partidas cambian de tono y de calibre, y conseguir la misma meses después es difícil.</p>
+      <h3>Adhesivo y pastina</h3>
+      <p>El consumo de adhesivo depende de la llana: cuanto más grande es la pieza, más profundo tiene que ser el diente. Como guía, una llana de 6 mm gasta unos 3 kg por m², una de 8 mm unos 4 kg y una de 10 mm unos 5 kg. Para piezas de 60 × 60 o más se usa llana de 10 o 12 mm y doble encolado.</p>
+      <p>La pastina se calcula con la medida de la pieza, el ancho de la junta y el espesor de la pieza: cuanto más chica es la pieza, más metros de junta hay por m² y más pastina se gasta.</p>
+    </section>
+
+    <!-- PEGÁ ACÁ TU CÓDIGO DE ADSENSE (en medio del contenido) -->
+    <div class="ad-slot" aria-hidden="true">Publicidad</div>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Cuántas cajas de cerámicos necesito para 20 m²?</summary><p>Con 10 % de desperdicio son 22 m². Dividí ese número por los m² que trae la caja y redondeá para arriba: si la caja trae 2 m² son 11 cajas, y si trae 1,44 m² son 16.</p></details>
+      <details><summary>¿Cuánto desperdicio hay que calcular en cerámicos?</summary><p>Un 10 % para colocación recta y un 15 % para colocación en diagonal. En ambientes con muchos recortes o con piezas muy grandes conviene sumar un poco más.</p></details>
+      <details><summary>¿Cuánto rinde una bolsa de adhesivo de 30 kg?</summary><p>Con llana de 8 mm rinde unos 7 m², y con llana de 10 mm, unos 6 m². El rendimiento real depende de lo pareja que esté la base.</p></details>
+      <details><summary>¿Cuánta pastina necesito?</summary><p>Para piezas de 60 × 60 con junta de 3 mm, alrededor de 150 gramos por m². Con piezas chicas, de 20 × 20, el consumo se triplica.</p></details>
+      <details><summary>¿Sirve para revestimientos de pared?</summary><p>Sí. En lugar del largo y el ancho del ambiente, cargá el largo y el alto de la pared a revestir.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Más calculadoras</h2>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>
