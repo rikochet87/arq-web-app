@@ -11,6 +11,9 @@ desktop.ini
 node_modules/
 npm-debug.log*
 
+# Vercel (vínculo local con el proyecto)
+.vercel/
+
 # Configuración local y secretos
 .env
 .env.*
