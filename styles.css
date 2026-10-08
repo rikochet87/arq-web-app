@@ -368,6 +368,11 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .lib-group > summary { padding: .5rem .25rem; font-size: .78rem; font-weight: 500; cursor: pointer; color: #c8c8c8; }
 .lib-group > summary:hover { color: var(--accent); }
 .lib-group .lib-item svg { height: 54px; }
+.lib-group > .ws-tip { padding-bottom: .4rem; }
+.lib-own { position: relative; flex: 0 0 100px; display: grid; }
+.lib-remove { position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; font-size: 1rem; line-height: 1; color: #888; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.lib-remove:hover { color: var(--danger); border-color: var(--danger); }
+@media (any-pointer: coarse) { .lib-remove { width: 32px; height: 32px; } }
 
 .ws-toggle[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .ws-menu { position: relative; }

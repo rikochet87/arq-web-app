@@ -11,6 +11,8 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
   const STORE = "calcuobra.plano.v1";
+  const SHELF = "calcuobra.biblioteca.v1"; // "Mis muebles": queda en el navegador, aparte del plano, y sirve para todos los planos
+  const SHELF_MAX = 40;
   const GRID = 10; // cm
   const UNTITLED = "Plano sin título";
   const STEPS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]; // cm, para reglas y escala gráfica
@@ -62,16 +64,26 @@
     }).join("");
   }
 
-  function itemLibraryHTML() {
+  // shelf: los muebles guardados por el usuario; van en el primer grupo, junto al mueble a medida en blanco.
+  function itemLibraryHTML(shelf) {
+    const tile = function (attr, o, label) {
+      const side = Math.max(o.w, o.d) * 1.15;
+      return '<button type="button" class="lib-item" ' + attr + ' aria-pressed="false">' +
+        '<svg class="plan-svg" viewBox="' + [-side / 2, -side / 2, side, side].map(n1).join(" ") + '" aria-hidden="true">' +
+        P.itemSVG({ type: o.type, x: 0, y: 0, r: 0, w: o.w, d: o.d, shape: o.shape }, side / 60, "") + "</svg>" +
+        "<span>" + escHTML(label) + "</span><small>" + size({ w: o.w, h: o.d }) + "</small></button>";
+    };
     return Object.keys(D.itemGroups).map(function (group) {
+      const own = group === "propios";
       const items = Object.keys(D.items).filter((key) => D.items[key].group === group).map(function (key) {
-        const def = D.items[key], side = Math.max(def.w, def.d) * 1.15;
-        return '<button type="button" class="lib-item" data-pick-item="' + key + '" aria-pressed="false">' +
-          '<svg class="plan-svg" viewBox="' + [-side / 2, -side / 2, side, side].map(n1).join(" ") + '" aria-hidden="true">' +
-          P.itemSVG({ type: key, x: 0, y: 0, r: 0, w: def.w, d: def.d }, side / 60, "") + "</svg>" +
-          "<span>" + escHTML(def.label) + "</span><small>" + size({ w: def.w, h: def.d }) + "</small></button>";
-      }).join("");
-      return '<details class="lib-group"><summary>' + escHTML(D.itemGroups[group]) + '</summary><div class="lib-grid">' + items + "</div></details>";
+        return tile('data-pick-item="' + key + '"', { type: key, w: D.items[key].w, d: D.items[key].d }, D.items[key].label);
+      }).join("") + (own ? shelf.map(function (o) {
+        return '<div class="lib-own">' + tile('data-pick-shelf="' + o.id + '"', o, o.name) +
+          '<button type="button" class="lib-remove" data-shelf-remove="' + o.id + '" title="Quitar de Mis muebles" aria-label="Quitar ' + escHTML(o.name) + ' de Mis muebles">×</button></div>';
+      }).join("") : "");
+      return '<details class="lib-group" data-group="' + group + '"' + (own ? " open" : "") + "><summary>" + escHTML(D.itemGroups[group]) + "</summary>" +
+        (own ? '<p class="ws-tip">Colocá un mueble a medida, ponele nombre, medidas y forma, y guardalo acá con «Guardar en Mis muebles». También podés guardar cualquier mueble de la biblioteca con otra medida.</p>' : "") +
+        '<div class="lib-grid">' + items + "</div></details>";
     }).join("");
   }
 
@@ -92,6 +104,8 @@
     let nextType = ""; // ladrillo de los muros que se dibujen a continuación; vacío = el tipo por defecto
     let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
     let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
+    let shelf = loadShelf(); // biblioteca personal de muebles
+    let stamp = null; // mueble de la biblioteca personal que se está colocando; si no, se coloca el de la biblioteca general ("pick")
     let presenting = false; // modo presentación: solo el plano, para mostrarlo y marcarlo frente al cliente
 
     // ---------- Estado ----------
@@ -116,6 +130,37 @@
         .map(function (v) { const levels = cleanLevels(v.levels); return { levels: levels, level: Math.min(v.level || 0, levels.length - 1), section: v.section || null }; });
       saved.variant = Math.min(saved.variant || 0, Math.max(0, saved.variants.length - 1));
       return saved;
+    }
+    // Biblioteca personal: solo entradas de un tipo conocido y con medidas.
+    function loadShelf() {
+      try {
+        const list = JSON.parse(localStorage.getItem(SHELF));
+        return (Array.isArray(list) ? list : []).filter((o) => o && D.items[o.type] && o.w >= 5 && o.d >= 5 && /^[a-z0-9]+$/.test(String(o.id))).slice(0, SHELF_MAX)
+          .map((o) => ({ id: String(o.id), type: o.type, name: String(o.name || D.items[o.type].label).slice(0, 40), w: Math.round(o.w), d: Math.round(o.d), tall: o.tall >= 5 ? Math.round(o.tall) : undefined, shape: o.shape === "round" ? "round" : undefined }));
+      } catch (e) { return []; }
+    }
+    function saveShelf() { try { localStorage.setItem(SHELF, JSON.stringify(shelf)); } catch (e) { /* sin almacenamiento */ } }
+    // Vuelve a armar la biblioteca de equipamiento sin plegar los grupos que estaban abiertos.
+    function renderLibrary() {
+      const box = $("[data-items]", root), open = $$("details[open]", box).map((d) => d.getAttribute("data-group"));
+      const first = !box.firstChild;
+      box.innerHTML = itemLibraryHTML(shelf);
+      if (!first) $$("details", box).forEach(function (d) { d.open = open.indexOf(d.getAttribute("data-group")) >= 0; });
+      syncPicks();
+    }
+    function syncPicks() {
+      $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === pick)));
+      $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(!stamp && b.getAttribute("data-pick-item") === pick)));
+      $$("[data-pick-shelf]", root).forEach((b) => b.setAttribute("aria-pressed", String(!!stamp && b.getAttribute("data-pick-shelf") === stamp.id)));
+    }
+    // Objeto nuevo: el de la biblioteca general o, si se eligió uno propio, con sus medidas, nombre y forma.
+    function newItem(id, q) {
+      const it = P.item(id, pick, q.x, q.y, 0);
+      if (!stamp) return it;
+      it.w = stamp.w; it.d = stamp.d;
+      if (D.items[it.type].custom) { it.name = stamp.name; if (stamp.shape) it.shape = stamp.shape; }
+      if (stamp.tall) it.tall = stamp.tall;
+      return it;
     }
     // Anotaciones bien formadas: un tipo conocido y puntos con números.
     function cleanNotes(list) {
@@ -641,9 +686,14 @@
         inspector.innerHTML = '<strong>Exterior</strong><label>Tipo <select name="type">' + Object.keys(D.surfaces).map((key) => '<option value="' + key + '"' + (key === item.type ? " selected" : "") + ">" +
           escHTML(D.surfaces[key].label) + "</option>").join("") + "</select></label>" + field("w", "Ancho", item.w / 100) + field("h", "Largo", item.h / 100) + button("delete", "Borrar");
       } else if (sel.type === "item") {
-        inspector.innerHTML = "<strong>" + escHTML(D.items[item.type].label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("d", "Fondo", item.d / 100) +
+        const own = D.items[item.type].custom;
+        inspector.innerHTML = "<strong>" + escHTML(D.items[item.type].label) + "</strong>" +
+          (own ? '<label>Nombre <input name="name" type="text" autocomplete="off" maxlength="40" value="' + escHTML(item.name || "") + '"></label>' : "") +
+          field("w", "Ancho", item.w / 100) + field("d", "Fondo", item.d / 100) +
+          (own ? field("tall", "Alto", (item.tall || D.items[item.type].tall) / 100) + '<label>Forma <select name="shape"><option value="">Rectangular</option><option value="round"' +
+            (item.shape === "round" ? " selected" : "") + ">Redonda</option></select></label>" : "") +
           '<label>Giro <input name="r" type="text" inputmode="numeric" autocomplete="off" value="' + (item.r || 0) + '"> °</label>' +
-          button("rotate", "Girar 90°") + button("duplicate", "Duplicar") + (hasWires(item.id) ? button("unwire", "Quitar cables") : "") + button("delete", "Borrar");
+          button("rotate", "Girar 90°") + button("duplicate", "Duplicar") + button("shelf-add", "Guardar en Mis muebles") + (hasWires(item.id) ? button("unwire", "Quitar cables") : "") + button("delete", "Borrar");
       } else {
         inspector.innerHTML = "<strong>Ambiente</strong><label>Nombre " + '<input name="name" type="text" list="room-types" autocomplete="off" value="' +
           escHTML(item.name) + '"></label><datalist id="room-types">' + D.roomTypes.map((n) => '<option value="' + escHTML(n) + '">').join("") +
@@ -652,13 +702,12 @@
       }
     }
 
-    function setTool(name, type) {
-      tool = name; pick = type || null; chain = null; hover = null; ghost = null; typed = ""; measure = null; arcEnd = null; wireFrom = null;
+    function setTool(name, type, own) {
+      tool = name; pick = type || null; stamp = own || null; chain = null; hover = null; ghost = null; typed = ""; measure = null; arcEnd = null; wireFrom = null;
       if (name !== "select" && name !== "pan") { sel = null; multi = false; } // al empezar a dibujar se suelta la selección
       $$("[data-tool]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-tool") === name)));
       $('[data-action="multi"]', root).setAttribute("aria-pressed", String(multi));
-      $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === pick)));
-      $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick-item") === pick)));
+      syncPicks();
       hint.textContent = HINTS[name === "select" && multi ? "multi" : name];
       svg.setAttribute("data-tool", NOTES[name] ? "note" : name);
       if (NOTES[name] && !layers().notes) { plan.layers = Object.assign(layers(), { notes: true }); save(); syncSettings(); } // no se anota sobre una capa oculta
@@ -945,6 +994,21 @@
         if (plan.variants.length === 1) { plan.variants = []; plan.variant = 0; commit(null); }
         hint.textContent = "Se eliminó la opción " + gone + ". Con Deshacer la recuperás.";
       },
+      // Guarda el objeto elegido, con sus medidas, en la biblioteca personal.
+      "shelf-add": function () {
+        const it = itemById(sel.id), def = D.items[it.type];
+        const entry = { id: Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), type: it.type, name: (def.custom && it.name) || def.label, w: it.w, d: it.d,
+          tall: it.tall || undefined, shape: def.custom && it.shape === "round" ? "round" : undefined };
+        const same = (o) => o.type === entry.type && o.name === entry.name && o.w === entry.w && o.d === entry.d && o.tall === entry.tall && o.shape === entry.shape;
+        if (shelf.some(same)) { hint.textContent = "«" + entry.name + "» con esas medidas ya está en Mis muebles."; return; }
+        if (shelf.length >= SHELF_MAX) { hint.textContent = "Mis muebles admite hasta " + SHELF_MAX + ". Quitá alguno con la × para guardar otro."; return; }
+        shelf.push(entry);
+        saveShelf();
+        renderLibrary();
+        const group = $('[data-items] [data-group="propios"]', root);
+        if (group) group.open = true;
+        hint.textContent = "«" + entry.name + "» quedó guardado en Equipamiento → Mis muebles, en este navegador. Lo podés usar en cualquier plano.";
+      },
       present: function () { present(true); },
       "present-exit": function () { present(false); },
       duplicate: function () {
@@ -1103,7 +1167,7 @@
       if (tool === "room") { addRoomPoint(snap(p)); return; }
       if (tool === "opening") { const hit = hitWall(p); if (hit) addOpening(hit, pick); return; }
       if (tool === "item") {
-        const q = itemPoint(p), it = P.item(nextId(), pick, q.x, q.y, 0);
+        const q = itemPoint(p), it = newItem(nextId(), q);
         pushHistory();
         plan.items.push(it);
         ghost = null;
@@ -1211,7 +1275,7 @@
           render();
         } else if (tool === "item") {
           const q = itemPoint(p);
-          ghost = P.item(0, pick, q.x, q.y, 0);
+          ghost = newItem(0, q);
           render();
         } else if (tool === "measure" && measure && !measure.b) { hover = snap(p); render(); }
         else if (tool === "arc" || tool === "surface" || tool === "section") { hover = snap(p); render(); }
@@ -1324,6 +1388,16 @@
 
     root.addEventListener("click", function (e) {
       const t = e.target.closest("[data-tool]"), a = e.target.closest("[data-action]"), item = e.target.closest("[data-pick]"), thing = e.target.closest("[data-pick-item]");
+      const gone = e.target.closest("[data-shelf-remove]"), mine = e.target.closest("[data-pick-shelf]");
+      if (gone) { // quitar un mueble de la biblioteca personal; los que ya están en el plano no cambian
+        const id = gone.getAttribute("data-shelf-remove");
+        shelf = shelf.filter((o) => o.id !== id);
+        saveShelf();
+        if (stamp && stamp.id === id) setTool("select");
+        renderLibrary();
+        return;
+      }
+      if (mine) { const own = shelf.find((o) => o.id === mine.getAttribute("data-pick-shelf")); if (own) setTool("item", own.type, own); return; }
       const swatch = e.target.closest("[data-swatch]");
       if (swatch) { setColor(swatch.getAttribute("data-swatch")); return; }
       if (e.target.closest("[data-view]")) { showView(e.target.closest("[data-view]").getAttribute("data-view")); return; }
@@ -1393,6 +1467,12 @@
         if (e.target.name !== "type" && !(v >= GRID)) { renderInspector(); return; }
         pushHistory();
         sf[e.target.name] = e.target.name === "type" ? e.target.value : v;
+        commit(sel);
+        return;
+      }
+      if (sel.type === "item" && (e.target.name === "name" || e.target.name === "shape")) { // solo en muebles a medida
+        pushHistory();
+        itemById(sel.id)[e.target.name] = e.target.value.trim().slice(0, 40);
         commit(sel);
         return;
       }
@@ -1510,7 +1590,7 @@
     // En pantallas chicas las secciones largas arrancan plegadas para que el lienzo quede a la vista.
     if (matchMedia("(max-width: 959px)").matches) $$("[data-collapse-mobile]", root).forEach((d) => d.removeAttribute("open"));
     $("[data-library]", root).innerHTML = libraryHTML();
-    $("[data-items]", root).innerHTML = itemLibraryHTML();
+    renderLibrary();
     syncSettings();
     fit();
     setTool("select");
