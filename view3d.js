@@ -102,7 +102,9 @@
     });
     data.rooms.forEach(function (room) {
       const shape = new THREE.Shape(room.points.map(function (p) { return new THREE.Vector2(p.x * M, p.y * M); }));
-      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), material.floor);
+      let floor = material.floor;
+      if (room.color) { floor = floor.clone(); floor.color.set(room.color).lerp(new THREE.Color(COLORS.floor), 0.4); } // color propio del ambiente, apagado hacia el del piso
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), floor);
       mesh.rotation.x = Math.PI / 2;
       mesh.position.y = room.z * M + 0.01;
       groups[room.level].add(mesh);

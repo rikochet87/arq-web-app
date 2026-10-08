@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const VERSION = "20261006"; // subilo en cada publicación para que los navegadores tomen los cambios
+const VERSION = "20261008"; // subilo en cada publicación para que los navegadores tomen los cambios
 const SITE_URL = ""; // ej. "https://www.tudominio.com.ar" — al completarlo se generan canonical, sitemap.xml y robots.txt
 // Datos del responsable del sitio, para las páginas legales. Lo que quede vacío aparece marcado como TODO en la página.
 const OWNER = {
@@ -358,7 +358,7 @@ const PLANNER = {
   app: true,
   js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "view3d.js", "docs.js", "planner.js"],
   title: "Diseñador de planos con cómputo de materiales | CalcuObra",
-  description: "Dibujá el plano de tu casa online, miralo en 3D y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
+  description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
   lead: "Dibujá la planta, amueblala, mirala en 3D y llevate la lista de materiales de toda la vivienda, con las medidas y los formatos que se venden en Argentina.",
   fields: [
@@ -398,6 +398,10 @@ const PLANNER = {
       <p>No incluye las fundaciones, ni las columnas, vigas y losas de una estructura independiente, la tirantería del techo, ni las cañerías y el cableado de las instalaciones: esos rubros dependen del proyecto y del cálculo de un profesional.</p>
       <h3>Vista 3D, medición y archivos</h3>
       <p>Con el botón 3D ves la vivienda levantada, con todas sus plantas apiladas, sus vanos y sus muebles, y la podés girar. Con Recorrer caminás por adentro de la casa a la altura de los ojos, pasando por las puertas; Separar despega las plantas y levanta el techo para ver cada piso; Rayos X vuelve traslúcidos los muros, y Corte rebana la vivienda a la altura que elijas. Si activás la capa Techo, la cubierta aparece en 3D y su contorno en la planta. La línea de corte genera un corte vertical con los muros, los vanos, los entrepisos y el perfil del techo. La herramienta Medir da la distancia entre dos puntos. Si tenés un boceto hecho a mano, Boceto a plano detecta las paredes, las puertas y las ventanas y las pasa en limpio. Si tenés un plano en papel o en foto, cargalo como imagen para calcar, indicá su ancho real y dibujá encima. Desde Exportar guardás el plano como imagen, como dibujo vectorial, como DXF para seguirlo en AutoCAD (en metros, con muros, puertas, ventanas, muebles, instalación eléctrica, textos y cotas generales en capas separadas) o como archivo para seguir editándolo después o en otra computadora.</p>
+      <h3>Para arquitectos e interioristas: anotar, comparar y presentar</h3>
+      <p>Sobre el plano podés dibujar como en un papel de calco. El lápiz traza a mano alzada, y además hay línea, flecha, rectángulo, elipse, nube de revisión y nota de texto, en siete colores y tres grosores. Cada anotación queda como un objeto: la tocás para moverla, estirarla de sus puntos, cambiarle el color, duplicarla o borrarla. Van en su propia capa, que se oculta con un toque, no entran en el cómputo y salen en la imagen PNG, en el SVG y en el DXF (capa ANOTACIONES).</p>
+      <p>Con Duplicar como otra opción guardás hasta seis versiones del mismo proyecto (Opción A, B, C…) dentro de un solo plano: probás otra distribución, otro tamaño de cocina o una ampliación sin perder la anterior. Una tabla compara la superficie útil, los ladrillos y el cemento de cada una. A cada ambiente le podés dar un color para distinguir zonas, y ese color se ve también en la vista 3D.</p>
+      <p>El modo Presentar deja en pantalla solo el plano, a pantalla completa, con lo justo para mostrarlo frente al cliente: mover, dibujar, señalar, escribir una nota, cambiar de opción y pasar a 3D. Lo que marques durante la reunión queda guardado en el plano.</p>
       <h3>Documentación de obra para presentar</h3>
       <p>Desde Exportar, Documentación de obra arma las láminas a escala con su carátula: plantas acotadas a ejes de muro, planta de techos, dos cortes, fachadas, instalación eléctrica, silueta y balance de superficies con FOS y FOT, y planilla de iluminación y ventilación. Cargás los datos del propietario, la nomenclatura catastral, las medidas del terreno y los profesionales, elegís el formato (A3 a A0) y la escala, y las imprimís o las guardás en PDF en tamaño real. Cada municipio tiene su modelo de carátula y sus exigencias, y los planos deben llevar la firma de un profesional matriculado: usalas como base y revisá el reglamento local.</p>
       <h3>Dónde queda guardado el plano</h3>
@@ -417,7 +421,10 @@ const PLANNER = {
     ["¿Puedo calcar un plano que ya tengo?", "Sí. Cargá una foto o imagen del plano, indicá su ancho real en metros y dibujá las paredes encima."],
     ["¿Puedo usarlo desde el celular?", "Sí, funciona en el navegador del celular. Para dibujar una vivienda completa es más cómodo una tablet o una computadora."],
     ["¿Sirve para presentar los planos en la municipalidad?", "Arma las láminas a escala con carátula, plantas acotadas, cortes, fachadas, balance de superficies y planilla de iluminación y ventilación, listas para imprimir o guardar en PDF. Cada municipio tiene su propio modelo y exige la firma de un profesional matriculado, que es quien debe revisarlas y presentarlas."],
-    ["¿Puedo abrir el plano en AutoCAD?", "Sí. Desde Exportar descargás un DXF que abre AutoCAD y cualquier programa compatible. Va en metros, con todas las plantas una al lado de la otra y una capa por rubro: muros, puertas, ventanas, muebles, eléctrica, exteriores, techo, textos y cotas."],
+    ["¿Puedo abrir el plano en AutoCAD?", "Sí. Desde Exportar descargás un DXF que abre AutoCAD y cualquier programa compatible. Va en metros, con todas las plantas una al lado de la otra y una capa por rubro: muros, puertas, ventanas, muebles, eléctrica, exteriores, techo, textos, cotas y anotaciones."],
+    ["¿Puedo dibujar y escribir notas sobre el plano?", "Sí. En la sección Anotar hay lápiz a mano alzada, línea, flecha, rectángulo, elipse, nube de revisión y nota de texto, con colores y grosores. Cada anotación se puede mover, editar y borrar después, y no altera el cómputo de materiales."],
+    ["¿Puedo comparar dos distribuciones de la misma casa?", "Sí. Con Duplicar como otra opción el plano guarda hasta seis versiones (Opción A, B, C…). Cambiás de una a otra con el selector de arriba y una tabla compara superficie útil, ladrillos y cemento. Los ajustes de obra son comunes a todas."],
+    ["¿Sirve para mostrarle el proyecto a un cliente?", "Sí. El botón Presentar deja solo el plano a pantalla completa, con herramientas para moverlo, dibujar encima, señalar, anotar, cambiar de opción y verlo en 3D. Para salir, apretá Esc o Salir."],
     ["¿Tengo que registrarme para guardar el plano?", "No. El plano se guarda automáticamente en tu navegador. Para llevarlo a otra computadora, exportalo como archivo y abrilo allá."]
   ]
 };
@@ -447,7 +454,18 @@ const UI = {
   surface: "M4 4h16v16H4z M4 10h16 M4 15h16 M9 4v6 M15 10v5 M9 15v5",
   wire: "M4 12a8 8 0 0116 0 M4 12h.010 M20 12h.010 M4 12v6 M20 12v6",
   section: "M3 12h5 M11 12h2 M16 12h5 M3 8v8 M21 8v8",
-  "sketch-load": "M4 20l1-4L16 5l3 3L8 19z M14 7l3 3 M4 4h5 M4 8h3"
+  "sketch-load": "M4 20l1-4L16 5l3 3L8 19z M14 7l3 3 M4 4h5 M4 8h3",
+  pen: "M4 20c3-1 3-5 6-5s2 4 5 3 3-6 5-8",
+  line: "M5 19L19 5",
+  arrow: "M5 19L19 5 M10 5h9v9",
+  rect: "M4 6h16v12H4z",
+  ellipse: "M12 5a8 7 0 100 14 8 7 0 000-14z",
+  cloud: "M7 18a4 4 0 01-.500-8 5 5 0 019.600-1.300A4.500 4.500 0 0117 18z",
+  text: "M5 7V4h14v3 M12 4v16 M9 20h6",
+  present: "M3 4h18v12H3z M12 16v4 M8 20h8 M10 7.500l5 2.500-5 2.500z",
+  "variant-add": "M4 8h11v12H4z M8 8V4h12v12h-5 M9.500 12v4 M7.500 14h4",
+  "variant-remove": "M4 8h11v12H4z M8 8V4h12v12h-5 M7.500 14h4",
+  exit: "M6 6l12 12 M18 6L6 18"
 };
 
 function plannerPage() {
@@ -474,10 +492,12 @@ function plannerPage() {
     '        <a class="logo" href="index.html">' + LOGO + "<span>" + BRAND.name + "</span></a>",
     '        <div class="ws-name"><input data-title type="text" value="Plano sin título" maxlength="60" aria-label="Nombre del plano"><small>Guardado en este navegador</small></div>',
     '        <select class="ws-level" data-level aria-label="Planta que se está dibujando"><option>Planta baja</option></select>',
+    '        <select class="ws-level" data-variant aria-label="Opción de diseño que se está viendo" hidden></select>',
     '        <div class="ws-group ws-views"><button type="button" data-view="2d" aria-pressed="true">2D</button><button type="button" data-view="3d" aria-pressed="false">3D</button></div>',
     '        <div class="ws-group">' + tbtn("undo", "undo", "Deshacer (Ctrl+Z)") + tbtn("redo", "redo", "Rehacer (Ctrl+Y)") + "</div>",
     '        <div class="ws-group">' + tbtn("zoom-out", "minus", "Alejar") + '<output data-zoom>100%</output>' + tbtn("zoom-in", "plus", "Acercar") + tbtn("fit", "fit", "Encuadrar el plano") + "</div>",
     '        <button type="button" class="ws-btn ws-toggle" data-action="snap" aria-pressed="true" title="Imán a la grilla y a las paredes" aria-label="Imán a la grilla y a las paredes">' + icon(UI.snap) + "</button>",
+    "        " + tbtn("present", "present", "Presentar: solo el plano, a pantalla completa"),
     '        <details class="ws-menu">',
     '          <summary class="btn btn-sm">' + icon(UI.export) + "<span>Exportar</span></summary>",
     '          <div class="ws-menu-list">',
@@ -526,7 +546,19 @@ function plannerPage() {
     '            <button type="button" class="btn btn-ghost btn-sm" data-action="ref-clear">Quitar imagen</button>',
     "          </div>",
     "        </details>",
-    '        <details class="ws-sec" data-collapse-mobile open><summary><b>05</b> Plano</summary>',
+    '        <details class="ws-sec" data-collapse-mobile open><summary><b>05</b> Anotar</summary>',
+    '          <p class="ws-tip">Ideas, correcciones y notas para el cliente, dibujadas sobre el plano. No entran en el cómputo.</p>',
+    "          " + row("tool", "pen", "Lápiz a mano alzada", "B"),
+    "          " + row("tool", "line", "Línea", "L"),
+    "          " + row("tool", "arrow", "Flecha"),
+    "          " + row("tool", "rect", "Rectángulo"),
+    "          " + row("tool", "ellipse", "Elipse"),
+    "          " + row("tool", "cloud", "Nube de revisión"),
+    "          " + row("tool", "text", "Nota de texto", "T"),
+    "        </details>",
+    '        <details class="ws-sec" data-collapse-mobile open><summary><b>06</b> Plano</summary>',
+    "          " + row("action", "variant-add", "Duplicar como otra opción"),
+    "          " + row("action", "variant-remove", "Eliminar esta opción"),
     "          " + row("action", "level-add", "Agregar una planta arriba"),
     "          " + row("action", "level-remove", "Eliminar esta planta"),
     "          " + row("action", "sample", "Abrir plano de ejemplo"),
@@ -551,6 +583,17 @@ function plannerPage() {
     '            <button type="button" class="btn btn-ghost" data-action="sketch-cancel">Cancelar</button>',
     "          </div>",
     '          <div class="inspector" data-inspector hidden></div>',
+    '          <div class="ws-present" role="toolbar" aria-label="Presentación">',
+    '            <button type="button" data-tool="pan" aria-pressed="false" title="Mover el plano">' + icon(UI.pan) + "<span>Mover</span></button>",
+    '            <button type="button" data-tool="pen" aria-pressed="false" title="Dibujar a mano alzada">' + icon(UI.pen) + "<span>Lápiz</span></button>",
+    '            <button type="button" data-tool="arrow" aria-pressed="false" title="Señalar con una flecha">' + icon(UI.arrow) + "<span>Flecha</span></button>",
+    '            <button type="button" data-tool="cloud" aria-pressed="false" title="Marcar con una nube de revisión">' + icon(UI.cloud) + "<span>Nube</span></button>",
+    '            <button type="button" data-tool="text" aria-pressed="false" title="Escribir una nota">' + icon(UI.text) + "<span>Nota</span></button>",
+    '            <select data-variant aria-label="Opción de diseño que se está viendo" hidden></select>',
+    '            <button type="button" data-view="2d" aria-pressed="true">2D</button><button type="button" data-view="3d" aria-pressed="false">3D</button>',
+    '            <button type="button" data-action="fit" title="Encuadrar el plano">' + icon(UI.fit) + "</button>",
+    '            <button type="button" class="ws-present-exit" data-action="present-exit" title="Salir de la presentación (Esc)">' + icon(UI.exit) + "<span>Salir</span></button>",
+    "          </div>",
     '          <div class="ws-status"><span data-coords>X · Y ·</span><span>imán 0,10 m</span><span class="ws-scale" data-scale></span></div>',
     "        </div>",
     '        <p class="planner-hint" data-hint></p>',
@@ -559,6 +602,10 @@ function plannerPage() {
     '        <details class="ws-sec" data-section-box open hidden><summary>Corte A–A</summary>',
     '          <div data-section></div>',
     '          <button type="button" class="btn btn-ghost btn-sm" data-action="section-clear">Quitar el corte</button>',
+    "        </details>",
+    '        <details class="ws-sec" data-compare-box open hidden><summary>Comparar opciones</summary>',
+    '          <div data-compare></div>',
+    '          <p class="ws-tip">Cada opción es una versión completa del plano. El cómputo de abajo corresponde a la que está a la vista, marcada en amarillo.</p>',
     "        </details>",
     '        <details class="ws-sec"><summary>Verificación CIRSOC <span data-checks-count></span></summary>',
     '          <div data-checks></div>',
@@ -575,7 +622,7 @@ function plannerPage() {
     "          </form>",
     "        </details>",
     '        <details class="ws-sec" open><summary>Capas</summary>',
-    "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
+    "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["notes", "Anotaciones"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
     "        </details>",
     "      </aside>",
     "    </div>",

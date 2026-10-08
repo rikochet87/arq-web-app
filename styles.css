@@ -225,6 +225,9 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .plan-svg .sketch-door { fill: none; stroke: var(--ink); }
 .plan-svg .roof-outline { fill: none; stroke: var(--glass); }
 .plan-svg .section-line { stroke: var(--danger); }
+.plan-svg .note { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+.plan-svg .note-halo { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; opacity: .45; }
+.plan-svg .note-text { fill: var(--ink); }
 .plan-svg .section-tag { fill: var(--danger); font-weight: 500; }
 .section-svg { width: 100%; height: auto; margin: .2rem 0 .6rem; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
 .section-svg .cut { fill: var(--ink); }
@@ -393,7 +396,7 @@ strong, b { font-weight: 500; color: #f0f0f0; }
   touch-action: none; user-select: none; -webkit-user-select: none; cursor: default;
 }
 .planner-canvas[data-tool="pan"], .planner-canvas[data-pan] { cursor: grab; }
-.planner-canvas[data-tool="wall"], .planner-canvas[data-tool="room"], .planner-canvas[data-tool="opening"] { cursor: crosshair; }
+.planner-canvas[data-tool="wall"], .planner-canvas[data-tool="room"], .planner-canvas[data-tool="opening"], .planner-canvas[data-tool="note"] { cursor: crosshair; }
 .ws-empty {
   position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: .5rem;
   padding: 1rem; text-align: center; pointer-events: none;
@@ -417,7 +420,19 @@ strong, b { font-weight: 500; color: #f0f0f0; }
   background: #111; border-top: 1px solid var(--line);
 }
 .inspector strong { color: var(--accent); font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; }
-.inspector input[name="name"] { width: 11rem; }
+.inspector input[name="name"], .inspector input[name="text"] { width: 11rem; }
+.swatches { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
+.swatch { --sw: var(--ink); width: 26px; height: 26px; border: 1px solid var(--line-hi); border-radius: var(--radius); background: var(--sw); }
+.swatch:not([style]) { background: linear-gradient(135deg, var(--ink) 0 46%, var(--field) 46% 54%, var(--ink) 54%); }
+.swatch:hover { border-color: var(--ink); }
+.swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (any-pointer: coarse) { .swatch { width: 34px; height: 34px; } }
+.compare { width: 100%; margin: .2rem 0 .5rem; border-collapse: collapse; font-size: .76rem; font-variant-numeric: tabular-nums; }
+.compare th, .compare td { padding: .35rem .4rem; border-bottom: 1px solid var(--line); text-align: right; font-weight: 400; }
+.compare tbody th { text-align: left; color: var(--muted); }
+.compare small { color: #777; }
+.compare .is-on { color: var(--accent); font-weight: 500; }
+.ws-present { display: none; }
 .inspector select { min-height: 38px; max-width: 100%; padding: .3rem .5rem; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
 .inspector input { width: 5.2rem; min-height: 38px; padding: .3rem .5rem; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
 .inspector input:focus, .inspector select:focus, .ws-ref input[type="text"]:focus, .ws-level:focus { outline: 1px solid var(--accent); outline-offset: 0; box-shadow: 0 0 8px rgb(245 195 0 / .08); }
@@ -522,3 +537,30 @@ html.doc-open { overflow: hidden; }
   html.doc-open .doc-sheet:last-child { break-after: auto; }
   html.doc-open .doc-sheet svg { width: auto; max-width: none; }
 }
+
+/* =============================================================
+   9. Modo presentación: solo el plano, con una barra flotante mínima
+   ============================================================= */
+html.is-presenting { overflow: hidden; }
+.ws.is-presenting { position: fixed; inset: 0; z-index: 50; display: block; height: auto; min-height: 0; border: 0; }
+.ws.is-presenting .ws-top, .ws.is-presenting .ws-side, .ws.is-presenting .ws-panel, .ws.is-presenting .planner-hint,
+.ws.is-presenting .ws-status, .ws.is-presenting .ws-empty { display: none; }
+.ws.is-presenting .ws-stage { height: 100%; border: 0; }
+.ws.is-presenting .planner-canvas { position: absolute; inset: 0; height: 100%; min-height: 0; }
+.ws.is-presenting .inspector {
+  position: absolute; z-index: 7; top: 12px; left: 12px; max-width: calc(100% - 24px);
+  border: 1px solid var(--line); border-left: 3px solid var(--accent); box-shadow: 0 4px 16px rgb(0 0 0 / .7);
+}
+.ws.is-presenting .ws-present {
+  position: absolute; z-index: 7; left: 8px; right: 8px; bottom: 14px; width: fit-content; margin-inline: auto;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 3px;
+  background: #111; border: 1px solid var(--line); border-top: 2px solid var(--accent); box-shadow: 0 4px 16px rgb(0 0 0 / .7);
+}
+.ws-present button { display: flex; align-items: center; gap: .4rem; min-height: 42px; padding: 0 .7rem; font: 500 .74rem/1 var(--mono); color: #c8c8c8; }
+.ws-present button svg { width: 18px; height: 18px; stroke-width: 1.4; }
+.ws-present button:hover { background: var(--raised); color: var(--ink); }
+.ws-present button[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.ws-present select { min-height: 42px; padding: 0 .5rem; font: 500 .74rem/1 var(--mono); background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.ws-present .ws-present-exit { color: var(--muted); border-left: 1px solid var(--line); }
+@media (max-width: 539px) { .ws-present button span { display: none; } }
+@media print { .ws-present { display: none !important; } }

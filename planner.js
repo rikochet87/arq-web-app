@@ -14,7 +14,10 @@
   const GRID = 10; // cm
   const UNTITLED = "Plano sin título";
   const STEPS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]; // cm, para reglas y escala gráfica
-  const LAYERS = { names: true, areas: true, dims: true, grid: true, items: true, electric: true, below: true, roof: false };
+  const LAYERS = { names: true, areas: true, dims: true, grid: true, items: true, electric: true, below: true, roof: false, notes: true };
+  const NOTES = P.NOTE_KINDS; // herramientas de anotación: trazo, línea, flecha, formas, nube y nota de texto
+  const OPTIONS = "ABCDEF";   // variantes del plano: "Opción A", "Opción B"…
+  const COLOR_NAMES = { "": "Sin color", "#e5484d": "Rojo", "#f08c00": "Naranja", "#2fa84f": "Verde", "#12a5a5": "Turquesa", "#3b82f6": "Azul", "#9b59d0": "Violeta", "#a0785a": "Madera" };
   const HINTS = {
     select: "Tocá un muro para cambiarle el ladrillo o el largo. Arrastrá un recuadro para elegir varios; con Shift sumás a la selección y Ctrl+A los toma todos. Para desplazarte usá la Mano (H) o mantené apretada la barra espaciadora.",
     multi: "Tocá cada muro que quieras sumar o quitar, o arrastrá un recuadro para sumar varios. Para desplazarte usá la Mano. Tocá otra vez «Elegir varios» para terminar.",
@@ -27,9 +30,16 @@
     arc: "Pared curva: tocá el inicio, después el final y por último un punto por donde pasa la curva.",
     surface: "Tocá una esquina de la superficie exterior y después la esquina opuesta. Después elegís si es patio, vereda, galería o balcón.",
     wire: "Tocá una boca eléctrica y después otra para unirlas con un cable. Seguí tocando para encadenar.",
-    section: "Tocá dos puntos para trazar la línea de corte. El corte aparece en el panel de la derecha."
+    section: "Tocá dos puntos para trazar la línea de corte. El corte aparece en el panel de la derecha.",
+    pen: "Dibujá a mano alzada arrastrando sobre el plano. Elegí color y grosor en la barra de arriba. Las anotaciones no entran en el cómputo.",
+    line: "Arrastrá para trazar una línea. Con Shift queda horizontal, vertical o a 45°.",
+    arrow: "Arrastrá desde donde nace la flecha hasta lo que querés señalar. Con Shift queda horizontal, vertical o a 45°.",
+    rect: "Arrastrá de una esquina a la opuesta. Con Shift sale un cuadrado.",
+    ellipse: "Arrastrá de una esquina a la opuesta del recuadro que encierra la elipse. Con Shift sale un círculo.",
+    cloud: "Arrastrá un recuadro alrededor de lo que hay que revisar: queda marcado con una nube de revisión.",
+    text: "Tocá donde va la nota y escribí el texto en la barra de arriba."
   };
-  const KEYS = { v: ["select"], h: ["pan"], w: ["wall"], r: ["room"], d: ["opening", "p80"], n: ["opening", "v120"], p: ["opening", "vano"], m: ["measure"], a: ["arc"], f: ["surface"], k: ["wire"], s: ["section"] };
+  const KEYS = { v: ["select"], h: ["pan"], w: ["wall"], r: ["room"], d: ["opening", "p80"], n: ["opening", "v120"], p: ["opening", "vano"], m: ["measure"], a: ["arc"], f: ["surface"], k: ["wire"], s: ["section"], b: ["pen"], l: ["line"], t: ["text"] };
 
   const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
   const same = (a, b) => a.x === b.x && a.y === b.y;
@@ -71,6 +81,7 @@
     const emptyNote = $("[data-empty-note]", root);
     const sketchBar = $("[data-sketch-bar]", root), checksOut = $("[data-checks]", root), checksCount = $("[data-checks-count]", root);
     const sectionBox = $("[data-section-box]", root), sectionOut = $("[data-section]", root);
+    const compareBox = $("[data-compare-box]", root), compareOut = $("[data-compare]", root);
     const refBox = $("[data-ref-box]", root), stage3d = $("[data-view3d]", root), note3d = $("[data-view3d-msg]", root);
     const zoomOut = $("[data-zoom]", root), coords = $("[data-coords]", root), scaleBar = $("[data-scale]", root), emptyBox = $("[data-empty]", root);
     const view = { x: 0, y: 0, w: 1000, h: 1000 };
@@ -80,6 +91,8 @@
     let spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
     let nextType = ""; // ladrillo de los muros que se dibujen a continuación; vacío = el tipo por defecto
     let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
+    let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
+    let presenting = false; // modo presentación: solo el plano, para mostrarlo y marcarlo frente al cliente
 
     // ---------- Estado ----------
     function load() {
@@ -96,14 +109,28 @@
       saved.surfaces = saved.surfaces || [];
       saved.items = (saved.items || []).filter(function (it) { return D.items[it.type]; });
       saved.openings.forEach(function (o) { if (!D.openings[o.type]) o.type = o.kind === "window" ? "v120" : "p80"; });
-      saved.levels = (saved.levels || []).map(function (lv, i) {
+      saved.notes = cleanNotes(saved.notes);
+      saved.levels = cleanLevels(saved.levels);
+      saved.level = Math.min(saved.level || 0, Math.max(0, saved.levels.length - 1));
+      saved.variants = (Array.isArray(saved.variants) ? saved.variants : []).filter(function (v) { return v && Array.isArray(v.levels) && v.levels.length; }).slice(0, OPTIONS.length)
+        .map(function (v) { const levels = cleanLevels(v.levels); return { levels: levels, level: Math.min(v.level || 0, levels.length - 1), section: v.section || null }; });
+      saved.variant = Math.min(saved.variant || 0, Math.max(0, saved.variants.length - 1));
+      return saved;
+    }
+    // Anotaciones bien formadas: un tipo conocido y puntos con números.
+    function cleanNotes(list) {
+      return (Array.isArray(list) ? list : []).filter(function (nt) {
+        return nt && NOTES[nt.kind] && Array.isArray(nt.pts) && nt.pts.length >= (nt.kind === "text" ? 1 : 2) && nt.pts.every(function (q) { return q && isFinite(q.x) && isFinite(q.y); });
+      });
+    }
+    function cleanLevels(list) {
+      return (list || []).map(function (lv, i) {
         const level = { name: lv.name || P.LEVEL_NAMES[i] };
         P.LEVEL_FIELDS.forEach(function (f) { level[f] = lv[f] || []; });
         level.items = level.items.filter(function (it) { return D.items[it.type]; });
+        level.notes = cleanNotes(level.notes);
         return level;
       });
-      saved.level = Math.min(saved.level || 0, Math.max(0, saved.levels.length - 1));
-      return saved;
     }
     // Arranca con el plano guardado o vacío. Con #ejemplo en la dirección carga la casa de muestra
     // (el plano guardado, si había, queda a un "Deshacer" de distancia).
@@ -138,6 +165,8 @@
     const itemById = (id) => plan.items.find((it) => it.id === id);
 
     const surfaceById = (id) => plan.surfaces.find((sf) => sf.id === id);
+    const noteById = (id) => plan.notes.find((nt) => nt.id === id);
+    const pt1 = (p) => ({ x: n1(p.x), y: n1(p.y) });
 
     // Plantas: los campos de P.LEVEL_FIELDS son siempre los de la planta activa; las demás esperan en plan.levels.
     function stashLevel() {
@@ -160,6 +189,22 @@
       syncSettings();
       setTool("select");
     }
+    /* Opciones de diseño (variantes): igual que las plantas, la opción activa vive en los campos de trabajo del plano
+       y las demás esperan en plan.variants. Comparten los ajustes de obra, las capas y los datos de carátula. */
+    const variantCount = () => Math.max(1, (plan.variants || []).length);
+    function stashVariant() {
+      stashLevel();
+      if (!plan.variants || !plan.variants.length) plan.variants = [{}];
+      plan.variant = Math.min(plan.variant || 0, plan.variants.length - 1);
+      plan.variants[plan.variant] = { levels: JSON.parse(JSON.stringify(plan.levels)), level: plan.level, section: plan.section || null };
+    }
+    function showVariant(index) {
+      const v = plan.variants[index];
+      plan.variant = index;
+      plan.levels = JSON.parse(JSON.stringify(v.levels));
+      plan.section = v.section || null;
+      showLevel(Math.min(v.level || 0, plan.levels.length - 1));
+    }
     const roomAt = (p) => model.rooms.find((r) => P.inside(r.points, p));
     const pickedWalls = () => !sel ? [] : sel.type === "wall" ? [sel.id] : sel.type === "walls" ? sel.ids : [];
     const wallsSel = (ids) => ids.length > 1 ? { type: "walls", ids: ids } : ids.length ? { type: "wall", id: ids[0] } : null;
@@ -170,7 +215,8 @@
         if (!sel || sel.type === "wall") return sel ? wallById(sel.id) : null;
         return sel.ids.map(wallById);
       }
-      return sel.type === "wall" ? wallById(sel.id) : sel.type === "opening" ? openingById(sel.id) : sel.type === "item" ? itemById(sel.id) : sel.type === "surface" ? surfaceById(sel.id) : roomAt(sel);
+      return sel.type === "wall" ? wallById(sel.id) : sel.type === "opening" ? openingById(sel.id) : sel.type === "item" ? itemById(sel.id) : sel.type === "surface" ? surfaceById(sel.id) :
+        sel.type === "note" ? noteById(sel.id) : roomAt(sel);
     }
 
     // Guarda, cambia la selección y redibuja todo.
@@ -179,12 +225,14 @@
       plan.openings = plan.openings.filter((o) => wallById(o.wall));
       plan.items = plan.items || [];
       plan.surfaces = plan.surfaces || [];
+      plan.notes = plan.notes || [];
       plan.wires = (plan.wires || []).filter((w) => itemById(w.a) && itemById(w.b)); // un cable sin una de sus bocas no existe
       sel = selection;
       save();
       render();
       if (!selected()) sel = null;
       renderInspector();
+      renderVariants();
     }
 
     // ---------- Geometría de pantalla ----------
@@ -196,7 +244,8 @@
     function fit() {
       // Encuadra los muros y también las superficies exteriores.
       const pts = plan.walls.reduce((all, w) => all.concat([w.a, w.b]), [])
-        .concat((plan.surfaces || []).reduce((all, sf) => all.concat([{ x: sf.x, y: sf.y }, { x: sf.x + sf.w, y: sf.y + sf.h }]), []));
+        .concat((plan.surfaces || []).reduce((all, sf) => all.concat([{ x: sf.x, y: sf.y }, { x: sf.x + sf.w, y: sf.y + sf.h }]), []))
+        .concat((plan.notes || []).reduce(function (all, nt) { const b = P.noteBox(nt); return b.x0 <= b.x1 ? all.concat([{ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y1 }]) : all; }, []));
       const r = svg.getBoundingClientRect(), ratio = r.width && r.height ? r.height / r.width : 0.75;
       if (!pts.length) { view.w = Math.max(900, (r.width || 900) * 1.4); view.x = -view.w * 0.25; view.y = -view.w * ratio * 0.25; return; }
       const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
@@ -265,6 +314,32 @@
         if (show[itemLayer(plan.items[i])] && P.itemHit(plan.items[i], p, 6 * px())) return plan.items[i];
       }
       return null;
+    }
+    function hitNote(p) {
+      if (!layers().notes) return null;
+      for (let i = plan.notes.length - 1; i >= 0; i--) if (P.noteHit(plan.notes[i], p, 7 * px())) return plan.notes[i];
+      return null;
+    }
+    // Con Shift: líneas y flechas a 0°, 45° o 90°; rectángulos, elipses y nubes de lados iguales.
+    function straight(from, to, kind) {
+      const dx = to.x - from.x, dy = to.y - from.y;
+      if (kind === "line" || kind === "arrow") {
+        const len = Math.hypot(dx, dy), ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
+        return pt1({ x: from.x + Math.cos(ang) * len, y: from.y + Math.sin(ang) * len });
+      }
+      const side = Math.max(Math.abs(dx), Math.abs(dy));
+      return pt1({ x: from.x + (dx < 0 ? -side : side), y: from.y + (dy < 0 ? -side : side) });
+    }
+    // Aligera un trazo a mano: quita los puntos que se apartan menos que tol de la recta entre sus vecinos (Ramer–Douglas–Peucker).
+    function simplify(pts, tol) {
+      if (pts.length < 3) return pts;
+      const a = pts[0], b = pts[pts.length - 1], len = dist(a, b);
+      let far = 0, at = 0;
+      for (let i = 1; i < pts.length - 1; i++) {
+        const d = len ? Math.abs((b.x - a.x) * (a.y - pts[i].y) - (a.x - pts[i].x) * (b.y - a.y)) / len : dist(a, pts[i]);
+        if (d > far) { far = d; at = i; }
+      }
+      return far <= tol ? [a, b] : simplify(pts.slice(0, at + 1), tol).slice(0, -1).concat(simplify(pts.slice(at), tol));
     }
     const hitSurface = (p) => plan.surfaces.find((sf) => p.x >= sf.x && p.x <= sf.x + sf.w && p.y >= sf.y && p.y <= sf.y + sf.h);
     const hasWires = (id) => plan.wires.some((w) => w.a === id || w.b === id);
@@ -352,7 +427,7 @@
         if (show.areas) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 + font * 0.7, "room-area", E.fmt(sf.w * sf.h / 1e4, 1) + " m²");
       });
       model.rooms.forEach(function (room) {
-        html += '<polygon class="room' + (room === active ? " sel" : "") + '" points="' + room.points.map((p) => n1(p.x) + "," + n1(p.y)).join(" ") + '"/>';
+        html += '<polygon class="room' + (room === active ? " sel" : "") + '"' + P.roomFill(room, room === active) + ' points="' + room.points.map((p) => n1(p.x) + "," + n1(p.y)).join(" ") + '"/>';
       });
       // La guía de la planta de abajo va sobre el relleno de los ambientes y debajo de los muros propios.
       if (show.below) model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
@@ -388,6 +463,14 @@
         });
       }
 
+      if (show.notes) {
+        const chosen = sel && sel.type === "note" && noteById(sel.id);
+        plan.notes.forEach(function (nt) { html += (nt === chosen ? P.noteSVG(nt, k, true) : "") + P.noteSVG(nt, k, false); });
+        if (chosen && chosen.kind !== "pen" && chosen.kind !== "text") { // los dos puntos que la definen se pueden arrastrar
+          chosen.pts.forEach(function (p) { html += '<circle class="handle" cx="' + n1(p.x) + '" cy="' + n1(p.y) + '" r="' + n1(6 * k) + '" stroke-width="' + n1(2 * k) + '"/>'; });
+        }
+      }
+      if (drag && drag.type === "draw") html += P.noteSVG(drag.note, k, false);
       if (sel && sel.type === "wall" && wallById(sel.id)) {
         [wallById(sel.id).a, wallById(sel.id).b].forEach(function (p) {
           html += '<circle class="handle" cx="' + n1(p.x) + '" cy="' + n1(p.y) + '" r="' + n1(6 * k) + '" stroke-width="' + n1(2 * k) + '"/>';
@@ -452,7 +535,7 @@
             label((measure.a.x + end.x) / 2, (measure.a.y + end.y) / 2 - 12 * k, "dim measure-label", E.fmt(dist(measure.a, end) / 100, 2) + " m");
         }
       }
-      svg.innerHTML = html + rulersSVG(k);
+      svg.innerHTML = html + (presenting ? "" : rulersSVG(k));
 
       const bar = STEPS.find((s) => s / k >= 70) || STEPS[STEPS.length - 1];
       scaleBar.style.width = Math.round(bar / k) + "px";
@@ -511,13 +594,27 @@
       const button = (action, labelText) => '<button type="button" class="btn btn-ghost" data-action="' + action + '">' + labelText + "</button>";
       const brickOptions = (current) => Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === current ? " selected" : "") + ">" +
         escHTML(D.bricks[key].label) + "</option>").join("");
-      const drawing = tool === "wall" || tool === "room" || tool === "arc";
-      inspector.hidden = !item && !drawing;
+      const swatches = (current, first) => '<span class="swatches" role="group" aria-label="Color">' + [""].concat(P.PALETTE).map((c) => '<button type="button" class="swatch" data-swatch="' + c +
+        '" aria-pressed="' + ((current || "") === c) + '" title="' + (c ? COLOR_NAMES[c] : first) + '" aria-label="' + (c ? COLOR_NAMES[c] : first) + '"' + (c ? ' style="--sw:' + c + '"' : "") + "></button>").join("") + "</span>";
+      const weight = (name, current, isText) => "<label>" + (isText ? "Tamaño" : "Grosor") + ' <select name="' + name + '">' + [["s", isText ? "Chico" : "Fino"], ["m", "Medio"], ["l", isText ? "Grande" : "Grueso"]]
+        .map((o) => '<option value="' + o[0] + '"' + ((current || "m") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
+      const drawing = tool === "wall" || tool === "room" || tool === "arc", annotating = !!NOTES[tool];
+      inspector.hidden = !item && !drawing && !annotating;
+      if (!item && annotating) { // anotando: color y grosor de lo que se dibuje a continuación
+        inspector.innerHTML = "<strong>" + escHTML(NOTES[tool]) + "</strong>" + swatches(nextNote.color, "Tinta") + weight("nextW", nextNote.w, tool === "text");
+        return;
+      }
       if (!item) { // dibujando: se elige el ladrillo de los muros que vienen
         if (drawing) {
           inspector.innerHTML = '<strong>Muros nuevos</strong><label>Ladrillo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + brickOptions(nextType) +
             "</select></label><span>" + (nextType ? E.fmt(D.bricks[nextType].e, 1) + " cm de espesor" : "se define en Ajustes de obra") + "</span>";
         }
+        return;
+      }
+      if (sel.type === "note") {
+        inspector.innerHTML = "<strong>" + escHTML(NOTES[item.kind]) + "</strong>" +
+          (item.kind === "text" ? '<label>Texto <input name="text" type="text" autocomplete="off" maxlength="120" value="' + escHTML(item.text) + '"></label>' : "") +
+          swatches(item.color, "Tinta") + weight("w", item.w, item.kind === "text") + button("duplicate", "Duplicar") + button("delete", "Borrar");
         return;
       }
       if (sel.type === "walls") {
@@ -551,7 +648,7 @@
         inspector.innerHTML = "<strong>Ambiente</strong><label>Nombre " + '<input name="name" type="text" list="room-types" autocomplete="off" value="' +
           escHTML(item.name) + '"></label><datalist id="room-types">' + D.roomTypes.map((n) => '<option value="' + escHTML(n) + '">').join("") +
           '</datalist><label>Piso <select name="floor">' + Object.keys(D.floors).map((key) => '<option value="' + key + '"' + (key === item.floor ? " selected" : "") + ">" +
-            escHTML(D.floors[key].label) + "</option>").join("") + "</select></label><span>" + E.fmt(item.area, 1) + " m²</span>";
+            escHTML(D.floors[key].label) + "</option>").join("") + "</select></label>" + swatches(item.color, "Sin color") + "<span>" + E.fmt(item.area, 1) + " m²</span>";
       }
     }
 
@@ -563,7 +660,8 @@
       $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === pick)));
       $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick-item") === pick)));
       hint.textContent = HINTS[name === "select" && multi ? "multi" : name];
-      svg.setAttribute("data-tool", name);
+      svg.setAttribute("data-tool", NOTES[name] ? "note" : name);
+      if (NOTES[name] && !layers().notes) { plan.layers = Object.assign(layers(), { notes: true }); save(); syncSettings(); } // no se anota sobre una capa oculta
       render();
       renderInspector();
     }
@@ -575,6 +673,7 @@
       if (sel.type === "wall" || sel.type === "walls") { const gone = pickedWalls(); plan.walls = plan.walls.filter((w) => gone.indexOf(w.id) < 0); }
       else if (sel.type === "item") plan.items = plan.items.filter((it) => it.id !== sel.id);
       else if (sel.type === "surface") plan.surfaces = plan.surfaces.filter((sf) => sf.id !== sel.id);
+      else if (sel.type === "note") plan.notes = plan.notes.filter((nt) => nt.id !== sel.id);
       else plan.openings = plan.openings.filter((o) => o.id !== sel.id);
       commit(null);
     }
@@ -618,6 +717,57 @@
       commit(sel);
     }
     const center = () => ({ x: view.x + view.w / 2, y: view.y + view.h / 2 });
+    // Nombre, piso o color de un ambiente: se guardan en una etiqueta ubicada dentro de él.
+    function tagRoom(field, value) {
+      const room = roomAt(sel), old = (plan.labels || []).find((l) => P.inside(room.points, l)) || {};
+      const tag = { x: sel.x, y: sel.y, name: old.name || "", floor: old.floor, color: old.color };
+      tag[field] = value;
+      pushHistory();
+      plan.labels = (plan.labels || []).filter((l) => !P.inside(room.points, l));
+      plan.labels.push(tag);
+      commit(sel);
+    }
+    // Un toque en la paleta: pinta la anotación o el ambiente elegido, o fija el color de las anotaciones que vienen.
+    function setColor(color) {
+      if (sel && sel.type === "note") { pushHistory(); noteById(sel.id).color = color; commit(sel); }
+      else if (sel && sel.type === "room") tagRoom("color", color);
+      else { nextNote.color = color; renderInspector(); }
+    }
+
+    // ---------- Opciones de diseño: selector y tabla que las compara ----------
+    function renderVariants() {
+      const list = plan.variants || [], many = list.length > 1, current = Math.min(plan.variant || 0, Math.max(0, list.length - 1));
+      $$("[data-variant]", root).forEach(function (el) {
+        el.hidden = !many;
+        el.innerHTML = list.map((v, i) => '<option value="' + i + '"' + (i === current ? " selected" : "") + ">Opción " + OPTIONS[i] + "</option>").join("");
+      });
+      compareBox.hidden = !many;
+      if (!many) return;
+      const cols = list.map(function (v, i) {
+        if (i === current) return model.main;
+        const lv = v.levels[Math.min(v.level || 0, v.levels.length - 1)], other = Object.assign({}, plan, { levels: v.levels, level: v.level || 0, section: v.section });
+        P.LEVEL_FIELDS.forEach(function (f) { other[f] = lv[f] || []; });
+        return P.compute(other).main;
+      });
+      compareOut.innerHTML = '<table class="compare"><thead><tr><th></th>' + list.map((v, i) => "<th" + (i === current ? ' class="is-on"' : "") + ">" + OPTIONS[i] + "</th>").join("") + "</tr></thead><tbody>" +
+        cols[0].map(function (m, r) {
+          return "<tr><th>" + escHTML(m.label) + " <small>" + escHTML(m.unit) + "</small></th>" + cols.map((c, i) => "<td" + (i === current ? ' class="is-on"' : "") + ">" + escHTML(c[r].value) + "</td>").join("") + "</tr>";
+        }).join("") + "</tbody></table>";
+    }
+
+    // ---------- Modo presentación ----------
+    function present(on) {
+      presenting = on;
+      root.classList.toggle("is-presenting", on);
+      document.documentElement.classList.toggle("is-presenting", on);
+      try {
+        if (on && root.requestFullscreen) root.requestFullscreen().catch(function () { /* sin pantalla completa: igual ocupa toda la ventana */ });
+        else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+      } catch (e) { /* navegador sin pantalla completa */ }
+      setTool(on ? "pan" : "select");
+      setTimeout(function () { fit(); render(); }, 120); // el lienzo ya tomó su tamaño nuevo
+    }
+    document.addEventListener("fullscreenchange", function () { if (presenting && !document.fullscreenElement) present(false); });
 
     // ---------- Archivos: exportar, abrir e imagen de referencia ----------
     function download(name, blob) {
@@ -777,7 +927,36 @@
         hint.textContent = "Se agregaron " + added + " paredes y " + placed + " aberturas. Revisá las medidas: el boceto queda de fondo para comparar y lo quitás desde «Imagen para calcar».";
       },
       "ref-clear": function () { plan.ref = null; save(); syncSettings(); render(); },
+      "variant-add": function () {
+        if (variantCount() >= OPTIONS.length) { hint.textContent = "Se pueden cargar hasta " + OPTIONS.length + " opciones."; return; }
+        pushHistory();
+        stashVariant();
+        const from = plan.variant;
+        plan.variants.push(JSON.parse(JSON.stringify(plan.variants[from])));
+        showVariant(plan.variants.length - 1);
+        hint.textContent = "Opción " + OPTIONS[plan.variant] + " creada como copia de la " + OPTIONS[from] + ". Lo que cambies acá no toca las otras; cambiá de opción con el selector de arriba.";
+      },
+      "variant-remove": function () {
+        if (variantCount() < 2) { hint.textContent = "El plano tiene una sola opción."; return; }
+        pushHistory();
+        const gone = OPTIONS[plan.variant];
+        plan.variants.splice(plan.variant, 1);
+        showVariant(Math.min(plan.variant, plan.variants.length - 1));
+        if (plan.variants.length === 1) { plan.variants = []; plan.variant = 0; commit(null); }
+        hint.textContent = "Se eliminó la opción " + gone + ". Con Deshacer la recuperás.";
+      },
+      present: function () { present(true); },
+      "present-exit": function () { present(false); },
       duplicate: function () {
+        if (sel.type === "note") {
+          const twin = JSON.parse(JSON.stringify(noteById(sel.id)));
+          twin.id = nextId();
+          twin.pts.forEach(function (q) { q.x += 20; q.y += 20; });
+          pushHistory();
+          plan.notes.push(twin);
+          commit({ type: "note", id: twin.id });
+          return;
+        }
         if (sel.type === "item") {
           const it = itemById(sel.id), copyOf = Object.assign({}, it, { id: nextId(), x: it.x + 20, y: it.y + 20 });
           pushHistory();
@@ -812,6 +991,7 @@
         pushHistory();
         const s = P.sample();
         s.settings = plan.settings; s.layers = plan.layers; s.snap = plan.snap; s.ref = plan.ref; s.name = plan.name; s.doc = plan.doc;
+        s.variants = plan.variants; s.variant = plan.variant; // el ejemplo reemplaza solo la opción a la vista
         plan = s; chain = null;
         fit(); commit(null); syncSettings(); setTool("select");
       }
@@ -906,6 +1086,19 @@
       const p = toWorld(e);
       try { svg.setPointerCapture(e.pointerId); } catch (err) { /* puntero sintético */ }
       if (e.button === 1 || tool === "pan" || spaceDown) { e.preventDefault(); startPan(e); return; }
+      if (NOTES[tool]) {
+        const fresh = { id: 0, kind: tool, color: nextNote.color, w: nextNote.w };
+        if (tool !== "text") { drag = { type: "draw", sx: e.clientX, sy: e.clientY, note: Object.assign(fresh, { pts: tool === "pen" ? [pt1(p)] : [pt1(p), pt1(p)] }) }; return; }
+        e.preventDefault(); // el foco tiene que quedar en el campo de texto, no volver al lienzo
+        Object.assign(fresh, { id: nextId(), pts: [pt1(p)], text: "Nota" });
+        pushHistory();
+        plan.notes.push(fresh);
+        setTool(presenting ? "pan" : "select");
+        commit({ type: "note", id: fresh.id });
+        const input = $('input[name="text"]', inspector);
+        if (input) { input.focus(); input.select(); }
+        return;
+      }
       if (tool === "wall") { addWallPoint(snap(p, { from: chain })); return; }
       if (tool === "room") { addRoomPoint(snap(p)); return; }
       if (tool === "opening") { const hit = hitWall(p); if (hit) addOpening(hit, pick); return; }
@@ -982,6 +1175,12 @@
         commit(wallsSel(ids));
         return;
       }
+      // Las anotaciones van dibujadas encima de todo: son lo primero que se elige.
+      const marked = !adding && sel && sel.type === "note" && noteById(sel.id);
+      const corner = marked && marked.kind !== "pen" && marked.kind !== "text" ? marked.pts.findIndex((q) => dist(q, p) < 11 * px()) : -1;
+      if (corner >= 0) { drag = { type: "notept", id: marked.id, i: corner }; return; }
+      const note = !adding && hitNote(p);
+      if (note) { commit({ type: "note", id: note.id }); drag = { type: "note", id: note.id, start: p, from: note.pts.map(copy) }; return; }
       const opening = hitOpening(p);
       if (opening) { commit({ type: "opening", id: opening.id }); drag = { type: "opening", id: opening.id }; return; }
       // Un clic sobre el cuerpo del muro elige el muro, aunque haya un mueble arrimado; el margen extra del mueble vale solo fuera del muro.
@@ -1029,6 +1228,23 @@
         if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
         drag.cur = p;
         render();
+      } else if (drag.type === "draw") {
+        const nt = drag.note, q = pt1(p);
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
+        if (nt.kind !== "pen") nt.pts[1] = e.shiftKey ? straight(nt.pts[0], q, nt.kind) : q;
+        else if (dist(nt.pts[nt.pts.length - 1], q) >= 2 * px()) nt.pts.push(q);
+        render();
+      } else if (drag.type === "note") {
+        const nt = noteById(drag.id), dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+        if (Math.abs(dx) + Math.abs(dy) < 2 * px() && !drag.dirty) return;
+        touch();
+        nt.pts = drag.from.map((q) => pt1({ x: q.x + dx, y: q.y + dy }));
+        render();
+      } else if (drag.type === "notept") {
+        const nt = noteById(drag.id);
+        touch();
+        nt.pts[drag.i] = e.shiftKey ? straight(nt.pts[1 - drag.i], pt1(p), nt.kind) : pt1(p);
+        render();
       } else if (drag.type === "node") {
         const to = snap(p, { skip: drag.cur });
         if (same(to, drag.cur)) return;
@@ -1069,6 +1285,16 @@
         const outside = !roomAt(q) && hitSurface(q);
         return roomAt(q) ? { type: "room", x: n1(q.x), y: n1(q.y) } : outside ? { type: "surface", id: outside.id } : null;
       };
+      if (done.type === "draw") {
+        const nt = done.note;
+        if (nt.kind === "pen") nt.pts = simplify(nt.pts, 1.2 * px());
+        if (!done.moved || nt.pts.length < 2 || dist(nt.pts[0], nt.pts[1]) < 1 && nt.pts.length === 2) { hint.textContent = "Mantené apretado y arrastrá para dibujar."; render(); return; }
+        pushHistory();
+        nt.id = nextId();
+        plan.notes.push(nt);
+        commit(null); // la herramienta sigue activa para seguir anotando
+        return;
+      }
       if (done.type === "box") {
         if (!done.moved) { // fue un clic, no un recuadro
           if (!done.add) commit(under(done.start));
@@ -1098,6 +1324,8 @@
 
     root.addEventListener("click", function (e) {
       const t = e.target.closest("[data-tool]"), a = e.target.closest("[data-action]"), item = e.target.closest("[data-pick]"), thing = e.target.closest("[data-pick-item]");
+      const swatch = e.target.closest("[data-swatch]");
+      if (swatch) { setColor(swatch.getAttribute("data-swatch")); return; }
       if (e.target.closest("[data-view]")) { showView(e.target.closest("[data-view]").getAttribute("data-view")); return; }
       if (t) setTool(t.getAttribute("data-tool"));
       else if (item) setTool("opening", item.getAttribute("data-pick"));
@@ -1133,8 +1361,9 @@
       }
       if (e.key === "Escape") {
         if (chain || wireFrom) { chain = null; arcEnd = null; wireFrom = null; typed = ""; render(); }
-        else if (sel && tool === "select") commit(null);
-        else setTool("select");
+        else if (sel && (tool === "select" || tool === "pan")) commit(null);
+        else if (presenting && tool === "pan") present(false);
+        else setTool(presenting ? "pan" : "select");
       }
       else if (ctrl && key === "a" && tool === "select") { e.preventDefault(); commit(wallsSel(plan.walls.map((w) => w.id))); }
       else if (e.key === "Delete" || e.key === "Backspace") { if (sel) { e.preventDefault(); removeSelection(); } }
@@ -1150,14 +1379,12 @@
     inspector.addEventListener("change", function (e) {
       // Sin nada seleccionado, el único campo posible es el ladrillo de los muros nuevos.
       if (e.target.name === "nextType") { nextType = e.target.value; renderInspector(); return; }
+      if (e.target.name === "nextW") { nextNote.w = e.target.value; return; }
       if (!sel) return;
-      if (sel.type === "room") {
-        const room = roomAt(sel), old = (plan.labels || []).find((l) => P.inside(room.points, l)) || {};
-        const tag = { x: sel.x, y: sel.y, name: old.name || "", floor: old.floor };
-        tag[e.target.name] = e.target.value.trim();
+      if (sel.type === "room") { tagRoom(e.target.name, e.target.value.trim()); return; }
+      if (sel.type === "note") {
         pushHistory();
-        plan.labels = (plan.labels || []).filter((l) => !P.inside(room.points, l));
-        plan.labels.push(tag);
+        noteById(sel.id)[e.target.name] = e.target.name === "text" ? e.target.value.trim() || "Nota" : e.target.value;
         commit(sel);
         return;
       }
@@ -1212,6 +1439,7 @@
       $("[data-level]", root).innerHTML = P.levelsOf(plan).map((level, i) => '<option value="' + i + '"' + (i === (plan.level || 0) ? " selected" : "") + ">" +
         escHTML(level.name) + "</option>").join("");
       $('[data-action="snap"]', root).setAttribute("aria-pressed", String(plan.snap !== false));
+      if (model) renderVariants();
       refBox.hidden = !(plan.ref && plan.ref.src);
       if (plan.ref) {
         $('[data-ref="w"]', root).value = E.fmt(plan.ref.w / 100, 2);
@@ -1230,6 +1458,7 @@
       plan.settings = s;
       save();
       render();
+      renderVariants();
     }
     settings.addEventListener("input", readSettings);
     settings.addEventListener("change", readSettings);
@@ -1244,6 +1473,7 @@
         return;
       }
       if (e.target.hasAttribute && e.target.hasAttribute("data-level")) { stashLevel(); showLevel(Number(e.target.value)); return; }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-variant")) { stashVariant(); showVariant(Number(e.target.value)); if (presenting) setTool("pan"); return; }
       const layer = e.target.getAttribute && e.target.getAttribute("data-layer");
       if (!layer) return;
       plan.layers = Object.assign(layers(), { [layer]: e.target.checked });
@@ -1285,6 +1515,7 @@
     fit();
     setTool("select");
     renderInspector();
+    renderVariants();
   }
 
   function boot() {
