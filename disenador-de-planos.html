@@ -27,8 +27,10 @@
   <script defer src="lib/sketch.js?v=20261009"></script>
   <script defer src="lib/sheets.js?v=20261009"></script>
   <script defer src="lib/dxf.js?v=20261009"></script>
+  <script defer src="lib/schedules.js?v=20261009"></script>
   <script defer src="view3d.js?v=20261009"></script>
   <script defer src="docs.js?v=20261009"></script>
+  <script defer src="panel.js?v=20261009"></script>
   <script defer src="planner.js?v=20261009"></script>
 </head>
 <body class="app">
@@ -50,6 +52,7 @@
           <summary class="btn btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 15V3 M7 8l5-5 5 5 M4 15v5h16v-5"/></svg><span>Exportar</span></summary>
           <div class="ws-menu-list">
             <button type="button" data-action="docs">Documentación de obra (láminas)</button>
+            <button type="button" data-action="schedules">Planillas de carpinterías y locales</button>
             <button type="button" data-action="print">Imprimir o guardar PDF</button>
             <button type="button" data-action="export-png">Imagen PNG</button>
             <button type="button" data-action="export-svg">Dibujo vectorial SVG</button>
@@ -254,6 +257,7 @@
           <label class="ws-layer"><input type="checkbox" data-layer="names" checked> Nombres de ambientes</label>
           <label class="ws-layer"><input type="checkbox" data-layer="areas" checked> Superficies de ambientes</label>
           <label class="ws-layer"><input type="checkbox" data-layer="dims" checked> Cotas de paredes</label>
+          <label class="ws-layer"><input type="checkbox" data-layer="tags" checked> Códigos de carpintería (P1, V1…)</label>
           <label class="ws-layer"><input type="checkbox" data-layer="notes" checked> Anotaciones</label>
           <label class="ws-layer"><input type="checkbox" data-layer="items" checked> Muebles y artefactos</label>
           <label class="ws-layer"><input type="checkbox" data-layer="electric" checked> Electricidad</label>

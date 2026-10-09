@@ -660,3 +660,39 @@ html.is-presenting { overflow: hidden; }
   .phase-legend { display: flex !important; position: static; background: none; }
   .phase-legend[hidden] { display: none !important; }
 }
+
+/* Panel de planillas y presupuesto: tabla ancha con encabezado fijo; en el celular se desplaza de costado. */
+.sheetpanel { grid-template: "bar" auto "view" minmax(0, 1fr) / minmax(0, 1fr); }
+.sheetpanel .doc-bar { flex-wrap: wrap; }
+.sp-tabs { display: flex; gap: .25rem; }
+.sp-tabs button { min-height: 38px; padding: .3rem .8rem; border: 1px solid var(--line); border-radius: var(--radius); color: var(--muted); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; }
+.sp-tabs button[aria-selected="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.sp-gap { flex: 1; }
+.sp-body { grid-area: view; overflow: auto; padding: .9rem .9rem 2rem; }
+.sp-sum { max-width: 90ch; margin-bottom: .8rem; font-size: .78rem; color: var(--muted); line-height: 1.5; }
+.sp-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.sp-table { width: 100%; border-collapse: collapse; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.sp-table th { position: sticky; top: 0; z-index: 1; padding: .55rem .6rem; background: #1b1b1b; border-bottom: 1px solid var(--line-hi); text-align: left; font: 500 .66rem/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.sp-table td { padding: .4rem .6rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.sp-table td.num { text-align: right; white-space: nowrap; }
+.sp-table tr:hover td { background: #171717; }
+.sp-table input, .sp-table select { min-height: 34px; padding: .2rem .45rem; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); }
+.sp-table input[inputmode="decimal"] { width: 5.5rem; text-align: right; }
+.sp-table input:not([inputmode]) { width: 100%; min-width: 9rem; }
+.sp-table input:focus, .sp-table select:focus { outline: 1px solid var(--accent); outline-offset: 0; }
+.sp-code { display: inline-block; min-width: 2.4rem; padding: .1rem .4rem; border: 1px solid var(--accent); border-radius: 3px; color: var(--accent); text-align: center; font-weight: 500; }
+.plan-svg .tag rect { fill: var(--bg); stroke: var(--accent); }
+.plan-svg .tag text { fill: var(--accent); font-family: var(--mono); font-weight: 500; }
+@media print {
+  html.doc-open .sheetpanel .doc-bar { display: none !important; }
+  html.doc-open .sheetpanel, html.doc-open .sp-body { position: static; display: block; overflow: visible; padding: 0; background: #fff; color: #111; }
+  .sp-sum { color: #333; }
+  .sp-scroll { overflow: visible; border: 0; }
+  .sp-table { font-size: 9pt; }
+  .sp-table th { position: static; background: none; color: #111; border-bottom: 1px solid #111; }
+  .sp-table td { border-bottom: 1px solid #bbb; }
+  .sp-table input, .sp-table select { border: 0; padding: 0; background: none; color: #111; appearance: none; -webkit-appearance: none; }
+  .sp-code { border-color: #111; color: #111; }
+  .plan-svg .tag rect { fill: #fff; stroke: #111; }
+  .plan-svg .tag text { fill: #111; }
+}
