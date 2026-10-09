@@ -182,7 +182,7 @@ const PAGES = [
       num("superficie", "Superficie", "m²", "30", { showIf: "modo=directo", hidden: true }),
       num("manos", "Manos", "", "2"),
       chk("techo", "Pintar también el cielorraso", false, { showIf: "modo=ambiente" }),
-      num("rendimiento", "Rendimiento", "m² por litro", "10", { hint: "Figura en el envase, por mano", wide: true })
+      num("rendimiento", "Rendimiento", "m² por litro", "8", { hint: "Por mano. En obra, 8 m²/L: 1 litro a dos manos cubre unos 4 m²", wide: true })
     ],
     steps: [
       "Medí el largo, el ancho y el alto del ambiente.",
@@ -195,20 +195,20 @@ const PAGES = [
       <p><strong>Litros = superficie × manos ÷ rendimiento</strong></p>
       <p>La superficie de las paredes es el perímetro del ambiente por la altura. En un cuarto de 4 × 3 m con 2,6 m de alto, el perímetro es 14 m y las paredes suman 36,4 m². A eso se le restan las aberturas: la calculadora descuenta 1,6 m² por puerta y 1,5 m² por ventana. Si pintás el cielorraso, se suma largo × ancho.</p>
       <h3>Qué rendimiento usar</h3>
-      <p>El rendimiento figura en el envase y está expresado por mano. Como referencia:</p>
+      <p>El rendimiento se expresa por mano. El que figura en el envase está medido en condiciones ideales; en obra rinde menos, así que la calculadora parte de 8 m² por litro y por mano. Dicho de otra forma: con 1 litro a dos manos se pintan unos 4 m², y 40 m² a dos manos llevan 10 litros. Como referencia:</p>
       <ul>
-        <li><strong>Látex interior:</strong> entre 10 y 12 m² por litro.</li>
-        <li><strong>Látex exterior o superficies rugosas:</strong> entre 6 y 8 m² por litro.</li>
+        <li><strong>Látex interior:</strong> unos 8 m² por litro en obra (el envase suele indicar entre 10 y 12).</li>
+        <li><strong>Látex exterior o superficies rugosas:</strong> entre 5 y 7 m² por litro.</li>
         <li><strong>Esmalte sintético:</strong> entre 10 y 14 m² por litro.</li>
       </ul>
       <p>Una pared nueva, porosa o con revoque grueso absorbe más pintura, y un cambio de color fuerte puede necesitar una tercera mano. En esos casos bajá el rendimiento o sumá una mano.</p>
       <h3>Fijador y enduido</h3>
       <p>La calculadora estima solo la pintura de terminación. En paredes nuevas o entizadas conviene dar antes una mano de fijador sellador, que se calcula igual: superficie dividido el rendimiento que indica su envase.</p>`,
     faqs: [
-      ["¿Cuántos m² rinde un litro de pintura?", "Un látex interior rinde entre 10 y 12 m² por litro y por mano sobre una pared lisa y sellada. En exteriores o superficies rugosas baja a 6 u 8 m² por litro."],
-      ["¿Cuánta pintura necesito para una habitación de 4 × 3?", "Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 10 m² por litro son cerca de 7 litros: alcanza con dos envases de 4 litros."],
+      ["¿Cuántos m² rinde un litro de pintura?", "En obra, un látex interior rinde unos 8 m² por litro y por mano: con 1 litro a dos manos se pintan cerca de 4 m². El envase suele indicar 10 a 12 m², pero eso es en condiciones ideales. En exteriores o superficies rugosas baja a 5 o 7 m² por litro."],
+      ["¿Cuánta pintura necesito para una habitación de 4 × 3?", "Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 8 m² por litro son algo más de 8 litros: conviene una lata de 10 litros."],
       ["¿Cuántas manos de pintura hay que dar?", "Dos manos es lo habitual. Si cambiás de un color oscuro a uno claro, o la pared es nueva, puede hacer falta una tercera."],
-      ["¿Cuánto rinde una lata de 20 litros?", "A 10 m² por litro, una lata de 20 litros cubre 200 m² en una mano, o 100 m² a dos manos."],
+      ["¿Cuánto rinde una lata de 20 litros?", "A 8 m² por litro, una lata de 20 litros cubre unos 160 m² en una mano, o 80 m² a dos manos."],
       ["¿Tengo que descontar puertas y ventanas?", "Sí, salvo que sean muy pocas y prefieras tener un margen. La calculadora las descuenta automáticamente con medidas estándar."]
     ]
   },
