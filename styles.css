@@ -696,3 +696,59 @@ html.is-presenting { overflow: hidden; }
   .plan-svg .tag rect { fill: #fff; stroke: #111; }
   .plan-svg .tag text { fill: #111; }
 }
+
+/* Presupuesto de obra */
+.bg-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin-bottom: .8rem; }
+.bg-stat { display: grid; gap: .2rem; padding: .7rem .8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.bg-stat span { font: 500 .66rem/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.bg-stat strong { font-size: 1.05rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.bg-stat.is-main { border-left: 3px solid var(--accent); }
+.bg-stat.is-main strong { font-size: 1.4rem; color: var(--accent); }
+.bg-pase { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; margin-bottom: .8rem; font-size: .76rem; color: #c8c8c8; }
+.bg-pase label { display: flex; align-items: center; gap: .4rem; }
+.bg-pase input { width: 4.5rem; min-height: 36px; padding: .2rem .45rem; text-align: right; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.bg-pase input:focus { outline: 1px solid var(--accent); outline-offset: 0; }
+.bg-rubro { margin-top: 1.2rem; }
+.bg-rubro h3 { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .4rem; font: 500 .78rem/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.bg-rubro h3 b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bg-rubro .ws-tip { padding: 0 0 .4rem; }
+.sp-table input[data-price] { width: 8.5rem; }
+.sp-table input::placeholder { color: var(--accent); opacity: .75; }
+.sp-table tr.is-missing td:first-child { color: var(--accent); }
+.sp-table tfoot td { padding: .5rem .6rem; color: var(--muted); font-size: .74rem; background: #161616; }
+.bg-final { max-width: 520px; margin: 1.4rem 0 .4rem auto; }
+.bg-final div:last-child dt, .bg-final div:last-child dd { color: var(--accent); font-size: .95rem; }
+@media print {
+  .bg-stat, .sp-table tfoot td { background: none; border-color: #999; color: #111; }
+  .bg-stat strong, .bg-stat.is-main strong, .bg-rubro h3, .bg-rubro h3 b { color: #111; }
+  .bg-pase input { border: 0; background: none; color: #111; }
+  .bg-rubro { break-inside: avoid; }
+  [data-bg-reset] { display: none; }
+}
+.bg-table { table-layout: fixed; min-width: 640px; }
+.bg-table th:nth-child(1) { width: 40%; }
+.bg-table th:nth-child(2) { width: 12%; }
+.bg-table th:nth-child(3) { width: 16%; }
+.bg-table th:nth-child(4) { width: 18%; }
+.bg-table th:nth-child(5) { width: 14%; }
+.bg-table td:first-child { overflow-wrap: anywhere; }
+.bg-u { display: none; }
+.bg-stat strong { white-space: nowrap; }
+/* Celular: la unidad va debajo de la cantidad y la tabla entra sin desplazarse. */
+@media (max-width: 600px) {
+  .bg-table { min-width: 0; }
+  .bg-table .bg-unit { display: none; }
+  .bg-u { display: block; color: var(--muted); font-size: .68rem; }
+  .bg-table { font-size: .72rem; }
+  .bg-table th { white-space: normal; font-size: .6rem; padding: .45rem .35rem; }
+  .bg-table th:nth-child(1) { width: 31%; }
+  .bg-table th:nth-child(2) { width: 18%; }
+  .bg-table th:nth-child(4) { width: 27%; }
+  .bg-table th:nth-child(5) { width: 24%; }
+  .sp-table input[data-price] { width: 100%; }
+  .bg-table td { padding: .4rem .35rem; }
+  .bg-table td.num:nth-child(4) { white-space: normal; }
+  .bg-stat.is-main strong { font-size: 1.15rem; }
+  .bg-top { grid-template-columns: 1fr 1fr; }
+  .bg-stat.is-main { grid-column: 1 / -1; }
+}

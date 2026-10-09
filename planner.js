@@ -676,6 +676,7 @@
         '<ul class="result-notes">' + model.notes.map((n) => "<li>" + escHTML(n) + "</li>").join("") + "</ul>" +
         '<div class="result-actions"><button type="button" class="btn" data-copy>Copiar cómputo</button>' +
         '<button type="button" class="btn btn-ghost" data-action="schedules">Planillas</button>' +
+        '<button type="button" class="btn btn-ghost" data-action="budget">Presupuesto</button>' +
         '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(text) + '">Enviar por WhatsApp</a></div>';
     }
 
@@ -1303,6 +1304,79 @@
             if (id === "print") { window.print(); return; }
             const phased = P.hasPhases(plan), data = tab === "rooms" ? S.roomTable(S.build(plan), phased) : S.openingTable(S.build(plan), phased);
             download(fileName("csv").replace(/\.csv$/, tab === "rooms" ? "-locales.csv" : "-carpinterias.csv"), new Blob([S.csv(data)], { type: "text/csv;charset=utf-8" }));
+          }
+        });
+      },
+      // Presupuesto de obra: cantidades del cómputo × precios. Los precios de materiales y jornales se comparten con
+      // las calculadoras (quedan en este navegador); los de aberturas y artefactos son propios de cada plano.
+      budget: function () {
+        const BG = brand.budget, U = brand.panel, K = brand.costs;
+        if (!BG || !U || !K) return;
+        if (!P.levelsOf(plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para presupuestar."; return; }
+        const esc = U.esc, PRICE_KEY = "calcuobra.precios.v1", money = K.money;
+        const loadPrices = () => { try { return K.clean(JSON.parse(localStorage.getItem(PRICE_KEY) || "{}")); } catch (e) { return {}; } };
+        const savePrices = (p) => { try { if (Object.keys(p).length) localStorage.setItem(PRICE_KEY, JSON.stringify(p)); else localStorage.removeItem(PRICE_KEY); } catch (e) { /* sin almacenamiento */ } };
+        let prices = loadPrices(), b = null;
+        const qty = (l) => E.fmt(l.qty, l.unit === "unidad" || l.unit === "placa" || /^rollo/.test(l.unit) ? 0 : 2);
+        function render() {
+          b = BG.build(plan, prices);
+          const stat = (label, value, cls) => '<div class="bg-stat' + (cls ? " " + cls : "") + '"><span>' + esc(label) + "</span><strong>" + esc(value) + "</strong></div>";
+          const pct = (k, label) => '<label>' + label + ' <input type="text" inputmode="decimal" data-key="pase-' + k + '" data-pase="' + k + '" value="' + E.fmt(b.pase[k], 1) + '"> %</label>';
+          let html = '<div class="bg-top">' + stat("Precio final", money(b.total), "is-main") + stat("Costo directo", money(b.direct)) + stat("Materiales", money(b.mat)) + stat("Mano de obra", money(b.mo)) +
+            (b.area ? stat("Por m² nuevo", money(b.total / b.area)) : "") + "</div>" +
+            '<div class="bg-pase">' + pct("gg", "Gastos generales") + pct("ben", "Beneficio") + pct("iva", "IVA") + "</div>" +
+            '<p class="sp-sum">Precios de referencia de ' + esc(b.date) + ". Cambiá cualquier precio en su casillero: los de materiales y mano de obra quedan guardados en este dispositivo y valen también en las calculadoras; los de aberturas y artefactos, en este plano." +
+            (b.phased ? " Obra con partes existentes: se presupuesta solo lo nuevo y la demolición." : "") + "</p>" +
+            (b.missing.length ? '<p class="cost-missing">Falta el precio de ' + b.missing.length + (b.missing.length === 1 ? " ítem" : " ítems") + ": el total no los incluye. Están marcados en amarillo.</p>" : "");
+          b.rubros.forEach(function (r, ri) {
+            html += '<section class="bg-rubro"><h3><span>' + esc(r.title) + "</span><b>" + money(r.total) + "</b></h3>" + (r.note ? '<p class="ws-tip">' + esc(r.note) + "</p>" : "") +
+              '<div class="sp-scroll"><table class="sp-table bg-table"><thead><tr><th>Ítem</th><th class="num">Cantidad</th><th class="bg-unit">Unidad</th><th class="num">Precio unitario</th><th class="num">Subtotal</th></tr></thead><tbody>' +
+              r.lines.map(function (l, li) {
+                return '<tr' + (l.price == null ? ' class="is-missing"' : "") + "><td>" + esc(l.label) + '</td><td class="num">' + qty(l) + '<small class="bg-u"> ' + esc(l.unit) + '</small></td><td class="bg-unit">' + esc(l.unit) + '</td><td class="num">$ <input type="text" inputmode="decimal" autocomplete="off" data-key="p-' + ri + "-" + li +
+                  '" data-price="' + esc(l.key) + '" value="' + (l.price == null ? "" : E.fmt(l.price, 2)) + '" placeholder="Cargá el precio" aria-label="Precio de ' + esc(l.label) + " por " + esc(l.unit) + '"></td><td class="num">' +
+                  (l.subtotal == null ? "—" : money(l.subtotal)) + "</td></tr>";
+              }).join("") + '</tbody><tfoot><tr><td colspan="4" class="bg-foot">Materiales ' + money(r.mat) + " · Mano de obra " + money(r.mo) + '</td><td class="num">' + money(r.total) + "</td></tr></tfoot></table></div></section>";
+          });
+          html += '<dl class="result-rows bg-final">' + [["Costo directo", b.direct], ["Gastos generales " + E.fmt(b.pase.gg, 1) + " %", b.gg], ["Beneficio " + E.fmt(b.pase.ben, 1) + " %", b.ben],
+            ["Subtotal", b.net], ["IVA " + E.fmt(b.pase.iva, 1) + " %", b.iva], ["Precio final", b.total]].map((x) => "<div><dt>" + esc(x[0]) + "</dt><dd>" + money(x[1]) + "</dd></div>").join("") + "</dl>" +
+            '<ul class="result-notes"><li>Cantidades del cómputo del plano, con su desperdicio. Cemento y cal van en bolsas con decimales: al comprar, se redondea el total de la obra.</li>' +
+            "<li>No incluye estructura de hormigón armado, instalación sanitaria ni de gas, tirantería del techo, flete ni honorarios profesionales.</li>" +
+            "<li>Estimación para presupuestar: no reemplaza el presupuesto de un profesional.</li></ul>" +
+            '<button type="button" class="btn btn-ghost btn-sm" data-bg-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Volver a los precios de referencia de materiales y mano de obra</button>";
+          return html;
+        }
+        function change(e) {
+          const el = e.target;
+          if (el.hasAttribute("data-pase")) {
+            const v = E.parseNum(el.value);
+            if (!(v >= 0 && v <= 100)) { el.setAttribute("aria-invalid", "true"); return; }
+            pushHistory();
+            plan.budget = Object.assign({}, plan.budget, { pase: Object.assign({}, BG.PASE, (plan.budget || {}).pase, { [el.getAttribute("data-pase")]: v }) });
+            save();
+          } else if (el.hasAttribute("data-price")) {
+            const key = el.getAttribute("data-price"), raw = el.value.trim().replace(/^\$\s*/, ""), v = raw === "" ? null : E.parseNum(raw);
+            if (v !== null && !(v >= 0)) { el.setAttribute("aria-invalid", "true"); return; }
+            if (key.indexOf("p:") === 0) {
+              pushHistory();
+              const own = Object.assign({}, (plan.budget || {}).prices);
+              if (v === null) delete own[key]; else own[key] = v;
+              plan.budget = Object.assign({}, plan.budget, { prices: own });
+              save();
+            } else {
+              if (v === K.priceOf(key, {})) delete prices[key]; else prices[key] = v;
+              savePrices(prices);
+            }
+          } else return;
+          panel.refresh();
+        }
+        const panel = U.open({
+          title: "Presupuesto de obra",
+          actions: [{ id: "csv", label: "Descargar para Excel" }, { id: "print", label: "Imprimir", ghost: true }],
+          render: render, change: change,
+          click: function (e) { if (e.target.closest("[data-bg-reset]")) { prices = {}; savePrices(prices); panel.refresh(); } },
+          action: function (id) {
+            if (id === "print") { window.print(); return; }
+            download(fileName("csv").replace(/\.csv$/, "-presupuesto.csv"), new Blob([BG.csv(BG.build(plan, prices))], { type: "text/csv;charset=utf-8" }));
           }
         });
       },
