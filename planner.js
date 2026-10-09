@@ -18,6 +18,13 @@
   const STEPS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]; // cm, para reglas y escala gráfica
   const LAYERS = { names: true, areas: true, dims: true, tags: true, grid: true, items: true, electric: true, below: true, roof: false, notes: true };
   const NOTES = P.NOTE_KINDS; // herramientas de anotación: trazo, línea, flecha, formas, nube y nota de texto
+  /* Plantillas de vista (como las de Revit): qué capas se ven y en qué fase, de un toque. Ponen también
+     la plantilla de las láminas con el mismo nombre, para que la documentación salga igual. */
+  const VIEW_TEMPLATES = {
+    municipal: { layers: { names: true, areas: true, dims: true, tags: false, items: false, electric: false, notes: false, grid: false }, phaseView: "municipal" },
+    obra: { layers: { names: true, areas: true, dims: true, tags: true, items: false, electric: true, notes: true, grid: true }, phaseView: "obra" },
+    cliente: { layers: { names: true, areas: true, dims: false, tags: false, items: true, electric: false, notes: false, grid: false }, phaseView: "obra" }
+  };
   const OPTIONS = "ABCDEF";   // variantes del plano: "Opción A", "Opción B"…
   const COLOR_NAMES = { "": "Sin color", "#e5484d": "Rojo", "#f08c00": "Naranja", "#2fa84f": "Verde", "#12a5a5": "Turquesa", "#3b82f6": "Azul", "#9b59d0": "Violeta", "#a0785a": "Madera" };
   const HINTS = {
@@ -1740,6 +1747,8 @@
         return;
       }
       if (mine) { const own = shelf.find((o) => o.id === mine.getAttribute("data-pick-shelf")); if (own) setTool("item", own.type, own); return; }
+      const tpl = e.target.closest("[data-view-tpl]");
+      if (tpl) { applyViewTemplate(tpl.getAttribute("data-view-tpl")); return; }
       const swatch = e.target.closest("[data-swatch]");
       if (swatch) { setColor(swatch.getAttribute("data-swatch")); return; }
       if (e.target.closest("[data-view]")) { showView(e.target.closest("[data-view]").getAttribute("data-view")); return; }
@@ -1877,6 +1886,7 @@
       });
       $$("[data-layer]", root).forEach(function (el) { el.checked = show[el.getAttribute("data-layer")]; });
       if (phaseView) phaseView.value = plan.phaseView || "obra";
+      syncTemplates();
       title.value = plan.name || UNTITLED;
       $("[data-level]", root).innerHTML = P.levelsOf(plan).map((level, i) => '<option value="' + i + '"' + (i === (plan.level || 0) ? " selected" : "") + ">" +
         escHTML(level.name) + "</option>").join("");
@@ -1905,7 +1915,22 @@
     settings.addEventListener("input", readSettings);
     settings.addEventListener("change", readSettings);
     settings.addEventListener("submit", function (e) { e.preventDefault(); });
-    if (phaseView) phaseView.addEventListener("change", function () { plan.phaseView = phaseView.value; save(); render(); });
+    if (phaseView) phaseView.addEventListener("change", function () { plan.phaseView = phaseView.value; delete plan.viewTemplate; save(); syncTemplates(); render(); });
+    function syncTemplates() {
+      $$("[data-view-tpl]", root).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view-tpl") === plan.viewTemplate)); });
+    }
+    function applyViewTemplate(key) {
+      const t = VIEW_TEMPLATES[key];
+      if (!t) return;
+      plan.layers = Object.assign(layers(), t.layers);
+      plan.phaseView = t.phaseView;
+      plan.viewTemplate = key;
+      if (brand.sheets) plan.doc = brand.sheets.applyTemplate(plan.doc || {}, key);
+      save();
+      syncSettings();
+      render();
+      if (!stage3d.hidden) showView("3d");
+    }
     const typesBox = $("[data-types]", root);
     if (typesBox) typesBox.addEventListener("change", typeInput);
     root.addEventListener("change", function (e) {
@@ -1922,7 +1947,9 @@
       const layer = e.target.getAttribute && e.target.getAttribute("data-layer");
       if (!layer) return;
       plan.layers = Object.assign(layers(), { [layer]: e.target.checked });
+      delete plan.viewTemplate; // tocó una capa a mano: la vista ya no es la de la plantilla
       save();
+      syncTemplates();
       render();
       if (!stage3d.hidden) showView("3d"); // el techo se muestra u oculta también en 3D
     });

@@ -752,3 +752,8 @@ html.is-presenting { overflow: hidden; }
   .bg-top { grid-template-columns: 1fr 1fr; }
   .bg-stat.is-main { grid-column: 1 / -1; }
 }
+.view-tpl { display: grid; gap: .3rem; padding: 0 .25rem .7rem; font-size: .74rem; color: #c8c8c8; }
+.view-tpl > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; }
+.view-tpl button { min-height: 38px; padding: .3rem .4rem; border: 1px solid var(--line); border-radius: var(--radius); color: var(--muted); font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; }
+.view-tpl button:hover { color: var(--ink); border-color: var(--line-hi); }
+.view-tpl button[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
