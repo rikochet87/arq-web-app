@@ -636,3 +636,27 @@ html.is-presenting { overflow: hidden; }
 .type-check input:checked { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 3px #0a0a0a; }
 @media print { .plan-svg .wall-fin { stroke: #bbb; } }
 .type-pick .btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+/* Fases: existente, a demoler y a construir. En "cómo queda", lo existente va en gris; en "municipal",
+   la convención de los planos municipales: existente en el color de siempre, demolición en amarillo y obra nueva en rojo. */
+.plan-svg[data-phase="obra"] .wall.ph-old { stroke: #7d7d7d; }
+.plan-svg[data-phase="obra"] .ph-old:not(.wall) { stroke: #7d7d7d; }
+.plan-svg[data-phase="municipal"] .wall.ph-new, .plan-svg[data-phase="municipal"] .ph-new:not(.wall) { stroke: #e5484d; }
+.plan-svg[data-phase="municipal"] .ph-demo { stroke: #f5c300; }
+.plan-svg[data-phase="municipal"] .wall.ph-demo { stroke-linecap: butt; opacity: .85; }
+.phase-legend {
+  position: absolute; right: 12px; bottom: 10px; display: flex; flex-wrap: wrap; gap: .4rem .9rem; padding: .35rem .65rem;
+  background: #111; border: 1px solid var(--line); font: 400 .7rem/1.4 var(--mono); color: var(--muted); pointer-events: none;
+}
+.phase-legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; margin-right: .4rem; vertical-align: middle; background: var(--ink); }
+.phase-legend .ph-demo::before { background: repeating-linear-gradient(90deg, #f5c300 0 4px, transparent 4px 7px); }
+.phase-legend .ph-new::before { background: #e5484d; }
+.phase-legend[hidden] { display: none; }
+.phase-view { display: grid; gap: .25rem; padding: 0 .25rem .6rem; font-size: .74rem; color: #c8c8c8; }
+.phase-view select { min-height: 38px; padding: .3rem .5rem; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+@media print {
+  .plan-svg[data-phase="municipal"] .ph-new { stroke: #c62828 !important; }
+  .plan-svg[data-phase="municipal"] .ph-demo { stroke: #c9a000 !important; }
+  .phase-legend { display: flex !important; position: static; background: none; }
+  .phase-legend[hidden] { display: none !important; }
+}

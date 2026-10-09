@@ -90,6 +90,7 @@
   function init(root) {
     const svg = $("[data-canvas]", root), hint = $("[data-hint]", root), inspector = $("[data-inspector]", root);
     const settings = $("[data-settings]", root), out = $("[data-result]", root), title = $("[data-title]", root);
+    const legend = $("[data-phase-legend]", root) || document.createElement("div"), phaseView = $("[data-phase-view]", root);
     const emptyNote = $("[data-empty-note]", root);
     const sketchBar = $("[data-sketch-bar]", root), checksOut = $("[data-checks]", root), checksCount = $("[data-checks-count]", root);
     const sectionBox = $("[data-section-box]", root), sectionOut = $("[data-section]", root);
@@ -103,6 +104,7 @@
     let spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
     let nextType = ""; // tipo de muro (id) de los muros que se dibujen a continuación; vacío = el tipo por defecto de su clase
     let editType = ""; // tipo de muro abierto en el panel "Tipos de muro"
+    let nextPhase = ""; // fase de los muros que se dibujen: vacío = a construir; "existente" para relevar lo que ya está
     let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
     let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
     let shelf = loadShelf(); // biblioteca personal de muebles
@@ -425,7 +427,7 @@
     }
 
     // ---------- Dibujo ----------
-    const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, model.wallThick[o.wall] || 12, k, cls);
+    const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, model.wallThick[o.wall] || (model.before && model.before.wallThick[o.wall]) || 12, k, cls);
 
     function rulersSVG(k) {
       const band = 18 * k, step = STEPS.find((s) => s / k >= 56) || STEPS[STEPS.length - 1], font = ' font-size="' + n1(9 * k) + '"';
@@ -474,21 +476,41 @@
         if (show.names) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 - font * 0.65, "room-label", (D.surfaces[sf.type] || D.surfaces.patio).label);
         if (show.areas) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 + font * 0.7, "room-area", E.fmt(sf.w * sf.h / 1e4, 1) + " m²");
       });
-      model.rooms.forEach(function (room) {
+      // Fases: "obra" = cómo queda (lo existente en gris), "actual" = antes de la obra, "municipal" = colores de plano municipal.
+      const pv = model.phased ? (plan.phaseView || "obra") : "obra", shown = pv === "actual" ? model.before : model;
+      const phaseOf = {};
+      plan.walls.forEach(function (w) { phaseOf[w.id] = P.wallPhase(w); });
+      const phaseCls = (ph) => !model.phased ? "" : ph === "demoler" ? " ph-demo" : ph === "existente" ? " ph-old" : pv === "municipal" ? " ph-new" : "";
+      const openingShown = (o) => {
+        const ph = P.openingPhase(o, wallById(o.wall));
+        return pv === "municipal" || (pv === "actual" ? ph !== "nueva" : ph !== "demoler");
+      };
+      legend.hidden = pv !== "municipal";
+      svg.setAttribute("data-phase", pv);
+      shown.rooms.forEach(function (room) {
         html += '<polygon class="room' + (room === active ? " sel" : "") + '"' + P.roomFill(room, room === active) + ' points="' + room.points.map((p) => n1(p.x) + "," + n1(p.y)).join(" ") + '"/>';
       });
       // La guía de la planta de abajo va sobre el relleno de los ambientes y debajo de los muros propios.
       if (show.below) model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
       // Cada muro en dos pasadas, como el nivel de detalle "fino" de Revit: primero el espesor terminado
       // (revoques, en tono suave) y encima el núcleo de ladrillo.
-      model.edges.forEach(function (e) {
+      shown.edges.forEach(function (e) {
         if (e.thick - e.core > 0.5) html += P.lineSVG(e.a, e.b, "wall-fin", e.thick);
       });
-      model.edges.forEach(function (e) {
-        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.core || e.thick);
+      shown.edges.forEach(function (e) {
+        const ph = pv === "actual" ? "existente" : phaseOf[e.wall];
+        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (pv === "actual" ? "" : phaseCls(ph)) + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.core || e.thick);
       });
+      if (pv === "municipal") { // lo que se demuele: en amarillo y a trazos, con el espesor que tiene hoy
+        plan.walls.forEach(function (w) {
+          if (phaseOf[w.id] !== "demoler") return;
+          html += P.lineSVG(w.a, w.b, "wall ph-demo" + (picked.indexOf(w.id) >= 0 ? " sel" : ""), (model.before && model.before.wallThick[w.id]) || 12, dash);
+        });
+      }
       plan.openings.forEach(function (o) {
-        html += openingSVG(o, k, sel && sel.type === "opening" && sel.id === o.id ? " sel" : "");
+        if (!openingShown(o)) return;
+        const ph = P.openingPhase(o, wallById(o.wall));
+        html += openingSVG(o, k, (pv === "actual" ? "" : phaseCls(ph)) + (sel && sel.type === "opening" && sel.id === o.id ? " sel" : ""));
       });
       plan.items.forEach(function (it) {
         if (show[itemLayer(it)]) html += P.itemSVG(it, k, sel && sel.type === "item" && sel.id === it.id ? " sel" : "");
@@ -502,15 +524,15 @@
       }
       if (ghost) html += '<g class="ghost">' + (ghost.wall ? openingSVG(ghost, k, " sel") : P.itemSVG(ghost, k, " sel")) + "</g>";
 
-      model.rooms.forEach(function (room) {
+      shown.rooms.forEach(function (room) {
         const both = show.names && show.areas;
         if (show.names) html += label(room.cx, room.cy - (both ? font * 0.65 : 0), "room-label", room.name);
         if (show.areas) html += label(room.cx, room.cy + (both ? font * 0.7 : 0), "room-area", E.fmt(room.area, 1) + " m²");
       });
       if (show.dims) {
         plan.walls.forEach(function (w) {
-          const len = dist(w.a, w.b);
-          if (len / k < 46) return;
+          const len = dist(w.a, w.b), ph = phaseOf[w.id];
+          if (len / k < 46 || (pv === "actual" ? ph === "nueva" : pv === "obra" && ph === "demoler")) return;
           const offset = (model.wallThick[w.id] || 12) / 2 + 11 * k;
           html += label((w.a.x + w.b.x) / 2 + (w.b.y - w.a.y) / len * offset, (w.a.y + w.b.y) / 2 - (w.b.x - w.a.x) / len * offset, "dim", E.fmt(len / 100, 2));
         });
@@ -745,6 +767,10 @@
       }
     }
 
+    const PHASE_OPTIONS = [["", "A construir"], ["existente", "Existente"], ["demoler", "Existente a demoler"]];
+    const phaseSelect = (current, mixed) => '<label>Fase <select name="phase">' + (mixed ? '<option value="mixed" selected disabled>Varias</option>' : "") +
+      PHASE_OPTIONS.map((o) => '<option value="' + o[0] + '"' + (!mixed && (current || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
+
     function renderInspector() {
       const item = selected();
       const field = (name, labelText, value) => "<label>" + labelText + ' <input name="' + name + '" type="text" inputmode="decimal" autocomplete="off" value="' +
@@ -766,7 +792,9 @@
         if (drawing) {
           const t = P.wallTypesOf(plan)[nextType];
           inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(nextType) +
-            "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>";
+            "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>" +
+            '<label>Fase <select name="nextPhase"><option value="">A construir</option><option value="existente"' + (nextPhase === "existente" ? " selected" : "") +
+            ">Existente (relevamiento)</option></select></label>";
         }
         return;
       }
@@ -779,7 +807,8 @@
       if (sel.type === "walls") {
         const types = Object.keys(item.reduce((set, w) => { set[w.type || ""] = true; return set; }, {})), mixed = types.length > 1;
         inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Tipo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
-          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label><span>" +
+          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label>" +
+          phaseSelect(item[0].phase, item.some((w) => (w.phase || "") !== (item[0].phase || ""))) + "<span>" +
           E.fmt(item.reduce((sum, w) => sum + dist(w.a, w.b), 0) / 100, 2) + " m en total</span>" + button("delete", "Borrar");
         return;
       }
@@ -789,12 +818,16 @@
         const types = P.wallTypesOf(plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
         inspector.innerHTML = "<strong>" + (outside ? "Muro exterior" : "Muro interior") + "</strong>" + field("length", "Largo", dist(item.a, item.b) / 100) +
           '<label>Tipo <select name="type"><option value="">Por defecto: ' + escHTML(usual.name) + "</option>" + typeOptions(item.type) + "</select></label>" +
-          "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" +
+          "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" + phaseSelect(item.phase) +
           '<button type="button" class="btn btn-ghost" data-action="type-edit" data-type="' + escHTML(t.id) + '">Editar el tipo</button>' +
           button("split", "Dividir en dos") + button("delete", "Borrar");
       } else if (sel.type === "opening") {
-        const def = P.typeOf(item);
-        inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) +
+        const def = P.typeOf(item), host = wallById(item.wall), hostPhase = host ? P.wallPhase(host) : "nueva";
+        // En un muro existente la abertura puede quedar, retirarse o ser un vano nuevo; en un muro nuevo siempre es nueva.
+        const phaseBox = hostPhase === "existente" ? '<label>Fase <select name="phase">' + [["", "Existente, como su muro"], ["nueva", "Vano nuevo (a construir)"], ["demoler", "A retirar"]]
+          .map((o) => '<option value="' + o[0] + '"' + ((item.phase === "existente" ? "" : item.phase || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>"
+          : hostPhase === "demoler" ? "<span>Se retira con su muro</span>" : "";
+        inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) + phaseBox +
           (/swing|double|garage/.test(def.symbol) ? button("flip-side", "Cambiar lado") : "") +
           (def.symbol === "swing" ? button("flip-hinge", "Cambiar bisagra") : "") + button("duplicate", "Duplicar") + button("delete", "Borrar");
       } else if (sel.type === "surface") {
@@ -847,7 +880,7 @@
       const fresh = list.filter((s) => dist(s[0], s[1]) >= GRID && !plan.walls.some((w) => onWall(w, s[0]) && onWall(w, s[1])));
       if (!fresh.length) return;
       pushHistory();
-      fresh.forEach(function (s) { plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, nextType ? { type: nextType } : {})); });
+      fresh.forEach(function (s) { plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, nextType ? { type: nextType } : {}, nextPhase ? { phase: nextPhase } : {})); });
     }
     function addWallPoint(p) {
       typed = "";
@@ -1602,6 +1635,23 @@
     inspector.addEventListener("change", function (e) {
       // Sin nada seleccionado, el único campo posible es el ladrillo de los muros nuevos.
       if (e.target.name === "nextType") { nextType = e.target.value; renderInspector(); return; }
+      if (e.target.name === "nextPhase") { nextPhase = e.target.value; renderInspector(); return; }
+      if (e.target.name === "phase") {
+        pushHistory();
+        const v = e.target.value;
+        if (sel.type === "opening") {
+          const o = selected();
+          if (v) o.phase = v; else delete o.phase;
+        } else {
+          pickedWalls().map(wallById).forEach(function (w) {
+            // Un muro que pasa a existente conserva el tipo que tiene hoy, aunque después cambie la planta a su alrededor.
+            if (v && !w.type) { const edge = model.edges.find((x) => x.wall === w.id); if (edge) w.type = edge.wt; }
+            if (v) w.phase = v; else delete w.phase;
+          });
+        }
+        commit(sel);
+        return;
+      }
       if (e.target.name === "nextW") { nextNote.w = e.target.value; return; }
       if (!sel) return;
       if (sel.type === "room") { tagRoom(e.target.name, e.target.value.trim()); return; }
@@ -1666,6 +1716,7 @@
         else el.value = s[el.name];
       });
       $$("[data-layer]", root).forEach(function (el) { el.checked = show[el.getAttribute("data-layer")]; });
+      if (phaseView) phaseView.value = plan.phaseView || "obra";
       title.value = plan.name || UNTITLED;
       $("[data-level]", root).innerHTML = P.levelsOf(plan).map((level, i) => '<option value="' + i + '"' + (i === (plan.level || 0) ? " selected" : "") + ">" +
         escHTML(level.name) + "</option>").join("");
@@ -1694,6 +1745,7 @@
     settings.addEventListener("input", readSettings);
     settings.addEventListener("change", readSettings);
     settings.addEventListener("submit", function (e) { e.preventDefault(); });
+    if (phaseView) phaseView.addEventListener("change", function () { plan.phaseView = phaseView.value; save(); render(); });
     const typesBox = $("[data-types]", root);
     if (typesBox) typesBox.addEventListener("change", typeInput);
     root.addEventListener("change", function (e) {

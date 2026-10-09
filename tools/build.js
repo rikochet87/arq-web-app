@@ -411,6 +411,7 @@ const PLANNER = {
   faqs: [
     ["¿Cómo dibujo una pared con una medida exacta?", "Mientras la dibujás, escribí el largo en metros y apretá Enter. También podés tocarla después con Seleccionar y cambiarle el largo."],
     ["¿Puedo usar un muro distinto en cada pared?", "Sí, de tres maneras. Antes de dibujar, elegís el tipo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de tipo a mitad de camino, lo dividís en dos."],
+    ["¿Sirve para una ampliación o una refacción?", "Sí. Tocá cada muro o abertura que ya existe y elegí su fase: existente o existente a demoler (o dibujá lo existente con la fase Existente elegida antes de empezar). Lo nuevo se dibuja como siempre. El cómputo cuenta solo lo que se construye y suma la demolición con el escombro y los contenedores. En Capas › Fases podés ver el plano como queda, como está hoy o con los colores del plano municipal: existente, a demoler en amarillo y a construir en rojo."],
     ["¿Qué es un tipo de muro?", "Es la receta de un muro: qué ladrillo lleva y qué revoques tiene de cada lado. Vienen armados los más comunes (bloque portante de 18, ladrillo común de 30 revocado o visto, hueco de 8 para tabiques) y en el panel Tipos de muro podés duplicarlos y cambiarles el ladrillo o el espesor del azotado y del grueso. Al editar un tipo cambian todos los muros que lo usan, en todas las plantas."],
     ["¿Qué puertas y ventanas trae la biblioteca?", "Puertas de 70, 80 y 90 cm, doble, corrediza, puerta balcón, portón de garage y vano sin puerta; ventanas de 100 a 180 cm, ventiluz y paño fijo. A cada una le podés cambiar el ancho y el alto."],
     ["¿Qué materiales calcula el diseñador?", "Ladrillos y mortero, revoques, contrapiso, carpeta, pisos con adhesivo y zócalos, cielorraso, cubierta y pintura interior, con el total de cemento, cal, arena y cascote. También lista aberturas, artefactos y bocas eléctricas."],
@@ -598,6 +599,7 @@ function plannerPage() {
     '            <button type="button" data-action="fit" title="Encuadrar el plano">' + icon(UI.fit) + "</button>",
     '            <button type="button" class="ws-present-exit" data-action="present-exit" title="Salir de la presentación (Esc)">' + icon(UI.exit) + "<span>Salir</span></button>",
     "          </div>",
+    '          <div class="phase-legend" data-phase-legend hidden><span class="ph-old">Existente</span><span class="ph-demo">A demoler</span><span class="ph-new">A construir</span></div>',
     '          <div class="ws-status"><span data-coords>X · Y ·</span><span>imán 0,10 m</span><span class="ws-scale" data-scale></span></div>',
     "        </div>",
     '        <p class="planner-hint" data-hint></p>',
@@ -629,6 +631,7 @@ function plannerPage() {
     '          <div class="type-editor" data-types></div>',
     "        </details>",
     '        <details class="ws-sec" open><summary>Capas</summary>',
+    '          <label class="phase-view">Fases <select data-phase-view><option value="obra">Cómo queda (lo existente en gris)</option><option value="actual">Estado actual (antes de la obra)</option><option value="municipal">Plano municipal (existente, a demoler y a construir)</option></select></label>',
     "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["notes", "Anotaciones"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
     "        </details>",
     "      </aside>",
