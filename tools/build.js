@@ -737,7 +737,7 @@ ${PAGES.filter((p) => p.key !== exceptKey).map((p) => `        <li><a class="car
 }
 
 function calculatorPage(p) {
-  p.js = ["lib/manifest.js", "lib/calc.js", "main.js"];
+  p.js = ["lib/manifest.js", "lib/calc.js", "lib/costs.js", "main.js"];
   p.ld = [
     Object.assign({
       "@context": "https://schema.org", "@type": "WebApplication", name: p.h1, description: p.description,
@@ -761,7 +761,7 @@ function calculatorPage(p) {
           <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
         </div>
       </div>
-      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+      <p class="badge">Gratis y sin registrarte. Los datos y precios que cargás no salen de tu dispositivo.</p>
     </section>
 
 ${AD("debajo de la calculadora")}
