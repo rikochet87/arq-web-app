@@ -101,7 +101,8 @@
     let plan = start();
     let tool = "select", pick = null, sel = null, chain = null, hover = null, ghost = null, typed = "", drag = null, model = null, text = "", measure = null, arcEnd = null, wireFrom = null, sketch = null;
     let spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
-    let nextType = ""; // ladrillo de los muros que se dibujen a continuación; vacío = el tipo por defecto
+    let nextType = ""; // tipo de muro (id) de los muros que se dibujen a continuación; vacío = el tipo por defecto de su clase
+    let editType = ""; // tipo de muro abierto en el panel "Tipos de muro"
     let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
     let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
     let shelf = loadShelf(); // biblioteca personal de muebles
@@ -129,6 +130,7 @@
       saved.variants = (Array.isArray(saved.variants) ? saved.variants : []).filter(function (v) { return v && Array.isArray(v.levels) && v.levels.length; }).slice(0, OPTIONS.length)
         .map(function (v) { const levels = cleanLevels(v.levels); return { levels: levels, level: Math.min(v.level || 0, levels.length - 1), section: v.section || null }; });
       saved.variant = Math.min(saved.variant || 0, Math.max(0, saved.variants.length - 1));
+      P.migrateWalls(saved); // ladrillo por muro (planos viejos) → tipos de muro
       return saved;
     }
     // Biblioteca personal: solo entradas de un tipo conocido y con medidas.
@@ -278,6 +280,7 @@
       if (!selected()) sel = null;
       renderInspector();
       renderVariants();
+      renderTypes();
     }
 
     // ---------- Geometría de pantalla ----------
@@ -476,8 +479,13 @@
       });
       // La guía de la planta de abajo va sobre el relleno de los ambientes y debajo de los muros propios.
       if (show.below) model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
+      // Cada muro en dos pasadas, como el nivel de detalle "fino" de Revit: primero el espesor terminado
+      // (revoques, en tono suave) y encima el núcleo de ladrillo.
       model.edges.forEach(function (e) {
-        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.thick);
+        if (e.thick - e.core > 0.5) html += P.lineSVG(e.a, e.b, "wall-fin", e.thick);
+      });
+      model.edges.forEach(function (e) {
+        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.core || e.thick);
       });
       plan.openings.forEach(function (o) {
         html += openingSVG(o, k, sel && sel.type === "opening" && sel.id === o.id ? " sel" : "");
@@ -632,13 +640,118 @@
         '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(text) + '">Enviar por WhatsApp</a></div>';
     }
 
+    // ---------- Tipos de muro ----------
+    function defaultType(cls) {
+      const types = P.wallTypesOf(plan), lib = P.wallTypesOf({});
+      return types[(plan.settings || {})[cls]] || types[P.DEFAULTS[cls]] || lib[P.DEFAULTS[cls]];
+    }
+    const thickText = (t) => E.fmt(P.typeThick(t, "ext"), 1) + " cm como exterior · " + E.fmt(P.typeThick(t, "int"), 1) + " cm como interior";
+    // Todos los muros del plano: plantas y opciones de diseño, con la planta activa tomada de los campos de trabajo.
+    function everyWall() {
+      const list = plan.walls.slice();
+      (plan.levels || []).forEach(function (lv, i) { if (i !== (plan.level || 0)) list.push.apply(list, lv.walls || []); });
+      (plan.variants || []).forEach(function (v, i) {
+        if (i === (plan.variant || 0)) return;
+        (v.levels || []).forEach(function (lv) { list.push.apply(list, lv.walls || []); });
+      });
+      return list;
+    }
+    function ensureTypes() { if (!Array.isArray(plan.wallTypes) || !plan.wallTypes.length) plan.wallTypes = P.wallTypeList(plan); }
+
+    const LAYER_COLORS = { azotado: "#4f9bd9", grueso: "#8d8d8d", fino: "#d9d9d9" };
+    // Corte del muro, capa por capa y a escala: de la cara exterior (izquierda) a la interior.
+    function layerSVG(t) {
+      const parts = [];
+      const face = (f, outer) => {
+        const list = [["azotado", f.azotado], ["grueso", f.grueso], ["fino", f.fino ? D.finishes.fineThick : 0]].filter((l) => l[1] > 0);
+        return outer ? list.slice().reverse() : list;
+      };
+      face(t.ext, true).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
+      parts.push({ cls: "core", w: D.bricks[t.brick].e });
+      face(t.int, false).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
+      const total = parts.reduce((s, p) => s + p.w, 0), W = 260, k = W / total;
+      let x = 0;
+      const rects = parts.map(function (p) {
+        const r = '<rect x="' + (x * k).toFixed(1) + '" y="0" width="' + Math.max(1, p.w * k).toFixed(1) + '" height="34" fill="' +
+          (p.cls === "core" ? "url(#brick-hatch)" : LAYER_COLORS[p.cls]) + '"/>';
+        x += p.w;
+        return r;
+      }).join("");
+      return '<svg class="type-svg" viewBox="0 0 260 46" role="img" aria-label="Capas del muro, de afuera hacia adentro">' +
+        '<defs><pattern id="brick-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#5a3b2e"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c2785a" stroke-width="2"/></pattern></defs>' +
+        rects + '<text x="0" y="45">Afuera</text><text x="260" y="45" text-anchor="end">Ambiente</text></svg>';
+    }
+    function renderTypes() {
+      // Los tipos de muro por defecto de los Ajustes de obra se eligen entre los tipos de este plano.
+      ["ext", "int"].forEach(function (cls) {
+        const el = settings.elements[cls];
+        if (!el) return;
+        el.innerHTML = P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '">' + escHTML(t.name) + "</option>").join("");
+        el.value = defaultType(cls).id;
+      });
+      const box = $("[data-types]", root);
+      if (!box) return;
+      const list = P.wallTypeList(plan);
+      if (!list.some((t) => t.id === editType)) editType = list[0].id;
+      const t = list.find((x) => x.id === editType), used = everyWall().filter((w) => w.type === t.id).length;
+      const isDefault = ["ext", "int"].filter((c) => defaultType(c).id === t.id);
+      const num = (face, layer, labelText) => "<label>" + labelText + ' (cm) <input type="text" inputmode="decimal" autocomplete="off" data-layer-cm="' + face + "." + layer +
+        '" value="' + E.fmt(t[face][layer], 1) + '"></label>';
+      const fine = (face) => '<label class="type-check"><input type="checkbox" data-layer-fino="' + face + '"' + (t[face].fino ? " checked" : "") + "> Revoque fino</label>";
+      const faceBox = (face, title) => '<fieldset class="type-face"><legend>' + title + "</legend>" + num(face, "azotado", "Azotado") +
+        num(face, "grueso", "Grueso") + fine(face) + "</fieldset>";
+      box.innerHTML =
+        '<div class="type-pick"><select data-type-pick aria-label="Tipo de muro">' + list.map((x) => '<option value="' + escHTML(x.id) + '"' + (x.id === t.id ? " selected" : "") + ">" +
+          escHTML(x.name) + "</option>").join("") + "</select>" +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="type-new">Duplicar</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="type-delete"' + (isDefault.length ? " disabled" : "") + ">Borrar</button></div>" +
+        layerSVG(t) +
+        '<p class="type-sum">' + thickText(t) + "<br>" + (used ? "Lo usan " + used + (used === 1 ? " muro" : " muros") : "Ningún muro lo usa directamente") +
+        (isDefault.length ? " · es el tipo por defecto de los muros " + isDefault.map((c) => c === "ext" ? "exteriores" : "interiores").join(" e ") : "") + ".</p>" +
+        '<div class="type-form"><label>Nombre <input type="text" maxlength="60" autocomplete="off" data-type-name value="' + escHTML(t.name) + '"></label>' +
+        '<label>Ladrillo <select data-type-brick>' + Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === t.brick ? " selected" : "") + ">" +
+          escHTML(D.bricks[key].label) + "</option>").join("") + "</select></label>" +
+        faceBox("ext", "Cara exterior") + faceBox("int", "Cara hacia un ambiente") + "</div>" +
+        '<p class="ws-tip">Los cambios valen para todos los muros de este tipo, en todas las plantas y opciones. La cara exterior se usa del lado de afuera de los muros exteriores.</p>';
+    }
+    // Cambia una propiedad del tipo abierto y vuelve a calcular todo.
+    function editTypeWith(fn) {
+      pushHistory();
+      ensureTypes();
+      const t = plan.wallTypes.find((x) => x.id === editType);
+      if (!t) return;
+      fn(t);
+      Object.assign(t, P.cleanType(t));
+      save();
+      render();
+      renderTypes();
+    }
+    function typeInput(e) {
+      const el = e.target;
+      if (el.matches("[data-type-pick]")) { editType = el.value; renderTypes(); return; }
+      if (e.type !== "change") return; // nombre y espesores se toman al confirmar, para no rehacer el panel mientras se tipea
+      if (el.matches("[data-type-name]")) {
+        const name = el.value.trim();
+        if (!name) return;
+        editTypeWith((t) => { t.name = name; });
+        return;
+      }
+      if (el.matches("[data-type-brick]")) { editTypeWith((t) => { t.brick = el.value; }); return; }
+      if (el.matches("[data-layer-fino]")) { const face = el.getAttribute("data-layer-fino"); editTypeWith((t) => { t[face].fino = el.checked; }); return; }
+      if (el.matches("[data-layer-cm]")) {
+        const parts = el.getAttribute("data-layer-cm").split("."), v = el.value.trim() === "" ? 0 : E.parseNum(el.value);
+        if (!(v >= 0 && v <= 5)) { el.setAttribute("aria-invalid", "true"); return; }
+        editTypeWith((t) => { t[parts[0]][parts[1]] = v; });
+      }
+    }
+
     function renderInspector() {
       const item = selected();
       const field = (name, labelText, value) => "<label>" + labelText + ' <input name="' + name + '" type="text" inputmode="decimal" autocomplete="off" value="' +
         E.fmt(value, 2) + '"> m</label>';
       const button = (action, labelText) => '<button type="button" class="btn btn-ghost" data-action="' + action + '">' + labelText + "</button>";
-      const brickOptions = (current) => Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === current ? " selected" : "") + ">" +
-        escHTML(D.bricks[key].label) + "</option>").join("");
+      const typeOptions = (current) => P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '"' + (t.id === current ? " selected" : "") + ">" +
+        escHTML(t.name) + "</option>").join("");
       const swatches = (current, first) => '<span class="swatches" role="group" aria-label="Color">' + [""].concat(P.PALETTE).map((c) => '<button type="button" class="swatch" data-swatch="' + c +
         '" aria-pressed="' + ((current || "") === c) + '" title="' + (c ? COLOR_NAMES[c] : first) + '" aria-label="' + (c ? COLOR_NAMES[c] : first) + '"' + (c ? ' style="--sw:' + c + '"' : "") + "></button>").join("") + "</span>";
       const weight = (name, current, isText) => "<label>" + (isText ? "Tamaño" : "Grosor") + ' <select name="' + name + '">' + [["s", isText ? "Chico" : "Fino"], ["m", "Medio"], ["l", isText ? "Grande" : "Grueso"]]
@@ -651,8 +764,9 @@
       }
       if (!item) { // dibujando: se elige el ladrillo de los muros que vienen
         if (drawing) {
-          inspector.innerHTML = '<strong>Muros nuevos</strong><label>Ladrillo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + brickOptions(nextType) +
-            "</select></label><span>" + (nextType ? E.fmt(D.bricks[nextType].e, 1) + " cm de espesor" : "se define en Ajustes de obra") + "</span>";
+          const t = P.wallTypesOf(plan)[nextType];
+          inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(nextType) +
+            "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>";
         }
         return;
       }
@@ -664,18 +778,19 @@
       }
       if (sel.type === "walls") {
         const types = Object.keys(item.reduce((set, w) => { set[w.type || ""] = true; return set; }, {})), mixed = types.length > 1;
-        inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Ladrillo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
-          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + brickOptions(mixed ? null : types[0]) + "</select></label><span>" +
+        inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Tipo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
+          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label><span>" +
           E.fmt(item.reduce((sum, w) => sum + dist(w.a, w.b), 0) / 100, 2) + " m en total</span>" + button("delete", "Borrar");
         return;
       }
       if (sel.type === "wall") {
-        // Clase (exterior o interior) detectada sola, y ladrillo que le tocaría por defecto.
+        // Clase (exterior o interior) detectada sola, y tipo que le tocaría por defecto.
         const edge = model.edges.find((e) => e.wall === item.id) || { cls: "ext" }, outside = edge.cls !== "int";
-        const usual = D.bricks[(plan.settings || {})[edge.cls]] || D.bricks[P.DEFAULTS[edge.cls]], brick = D.bricks[item.type] || usual;
+        const types = P.wallTypesOf(plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
         inspector.innerHTML = "<strong>" + (outside ? "Muro exterior" : "Muro interior") + "</strong>" + field("length", "Largo", dist(item.a, item.b) / 100) +
-          '<label>Ladrillo <select name="type"><option value="">Por defecto: ' + escHTML(usual.label) + "</option>" + Object.keys(D.bricks).map((key) => '<option value="' + key + '"' +
-            (key === item.type ? " selected" : "") + ">" + escHTML(D.bricks[key].label) + "</option>").join("") + "</select></label><span>" + E.fmt(brick.e, 1) + " cm de espesor</span>" +
+          '<label>Tipo <select name="type"><option value="">Por defecto: ' + escHTML(usual.name) + "</option>" + typeOptions(item.type) + "</select></label>" +
+          "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" +
+          '<button type="button" class="btn btn-ghost" data-action="type-edit" data-type="' + escHTML(t.id) + '">Editar el tipo</button>' +
           button("split", "Dividir en dos") + button("delete", "Borrar");
       } else if (sel.type === "opening") {
         const def = P.typeOf(item);
@@ -933,6 +1048,40 @@
       },
       "export-json": function () { download(fileName("json"), new Blob([JSON.stringify(Object.assign({ app: "calcuobra", version: 1 }, JSON.parse(snapshot())), null, 1)], { type: "application/json" })); },
       "open-file": function () { $('[data-file="plan"]', root).click(); },
+      "type-edit": function (el) { // del inspector del muro al panel de tipos, con su tipo abierto
+        editType = el.getAttribute("data-type") || "";
+        const box = $("[data-types-box]", root);
+        box.open = true;
+        renderTypes();
+        box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        const pick = $("[data-type-pick]", root);
+        if (pick) pick.focus({ preventScroll: true });
+      },
+      "type-new": function () { // duplica el tipo abierto: así se arma uno nuevo sin empezar de cero
+        pushHistory();
+        ensureTypes();
+        const from = plan.wallTypes.find((x) => x.id === editType) || plan.wallTypes[0];
+        const copyType = JSON.parse(JSON.stringify(from));
+        copyType.id = "t-" + nextId();
+        copyType.name = ("Copia de " + from.name).slice(0, 60);
+        plan.wallTypes.push(copyType);
+        editType = copyType.id;
+        save(); render(); renderTypes();
+        const name = $("[data-type-name]", root);
+        if (name) { name.focus(); name.select(); }
+      },
+      "type-delete": function () { // los muros que lo usaban vuelven al tipo por defecto de su clase
+        ensureTypes();
+        if (plan.wallTypes.length < 2 || ["ext", "int"].some((c) => defaultType(c).id === editType)) return;
+        const used = everyWall().filter((w) => w.type === editType);
+        if (used.length && !window.confirm("Lo usan " + used.length + (used.length === 1 ? " muro, que pasa" : " muros, que pasan") + " al tipo por defecto. ¿Borrar el tipo?")) return;
+        pushHistory();
+        used.forEach((w) => { delete w.type; });
+        plan.wallTypes = plan.wallTypes.filter((x) => x.id !== editType);
+        if (nextType === editType) nextType = "";
+        editType = "";
+        save(); render(); renderTypes(); renderInspector();
+      },
       "ref-load": function () { $('[data-file="ref"]', root).click(); },
       "sketch-load": function () { $('[data-file="sketch"]', root).click(); },
       "sketch-cancel": function () { sketch = null; syncSketch(); fit(); render(); },
@@ -1405,7 +1554,7 @@
       else if (item) setTool("opening", item.getAttribute("data-pick"));
       else if (thing) setTool("item", thing.getAttribute("data-pick-item"));
       else if (a && actions[a.getAttribute("data-action")]) {
-        actions[a.getAttribute("data-action")]();
+        actions[a.getAttribute("data-action")](a);
         if (a.closest(".ws-menu")) a.closest(".ws-menu").removeAttribute("open");
       }
       else if (e.target.closest("[data-copy]")) {
@@ -1509,6 +1658,8 @@
     const LIMITS = { height: [100, 2, 6], slab: [1, 0, 50], screed: [1, 0, 10], coats: [1, 1, 5] };
     function syncSettings() {
       const s = Object.assign({}, P.DEFAULTS, plan.settings), show = layers();
+      ["ext", "int"].forEach(function (cls) { s[cls] = defaultType(cls).id; });
+      renderTypes();
       $$("input, select", settings).forEach(function (el) {
         if (el.type === "checkbox") el.checked = !!s[el.name];
         else if (LIMITS[el.name]) el.value = E.fmt(s[el.name] / LIMITS[el.name][0], 2);
@@ -1543,6 +1694,8 @@
     settings.addEventListener("input", readSettings);
     settings.addEventListener("change", readSettings);
     settings.addEventListener("submit", function (e) { e.preventDefault(); });
+    const typesBox = $("[data-types]", root);
+    if (typesBox) typesBox.addEventListener("change", typeInput);
     root.addEventListener("change", function (e) {
       const sketchField = e.target.getAttribute && e.target.getAttribute("data-sketch");
       if (sketchField && sketch) {

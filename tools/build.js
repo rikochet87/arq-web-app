@@ -351,7 +351,7 @@ const PAGES = [
 ];
 
 // ---------- Diseñador de planos ----------
-const BRICKS = Object.keys(DATA.bricks).map((k) => [k, DATA.bricks[k].label]);
+const WALL_TYPES = DATA.wallTypes.map((t) => [t.id, t.name]); // el diseñador los reemplaza por los tipos del plano abierto
 const PLANNER = {
   file: "disenador-de-planos.html",
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
@@ -367,8 +367,8 @@ const PLANNER = {
     sel("system", "Estructura", [["portante", "Muros portantes (CIRSOC 501-E)"], ["independiente", "Independiente de hormigón armado (CIRSOC 201)"]], { value: "portante", wide: true }),
     sel("zone", "Zona sísmica", [["0", "0 — muy reducida"], ["1", "1 — reducida"], ["2", "2 — moderada"], ["3", "3 — elevada"], ["4", "4 — muy elevada"]], { value: "0" }),
     sel("mortar", "Mortero de asiento", mixes("mE", "mI", "mN").map(([k, text]) => [k, text.split(",")[0]]), { value: "mI" }),
-    sel("ext", "Muros exteriores, por defecto", BRICKS, { value: "portante18", wide: true }),
-    sel("int", "Muros interiores, por defecto", BRICKS, { value: "hueco8", wide: true }),
+    sel("ext", "Muros exteriores, por defecto", WALL_TYPES, { value: "ext-portante18", wide: true }),
+    sel("int", "Muros interiores, por defecto", WALL_TYPES, { value: "int-hueco8", wide: true }),
     sel("roof", "Cubierta", Object.keys(DATA.roofs).map((k) => [k, DATA.roofs[k].label]), { value: "chapa", wide: true }),
     num("slab", "Contrapiso", "cm", "10"),
     num("screed", "Carpeta", "cm", "2"),
@@ -383,7 +383,8 @@ const PLANNER = {
       <h2>Cómo se arma el cómputo a partir del plano</h2>
       <p>El diseñador mide lo que dibujás y aplica las mismas fórmulas que las calculadoras del sitio, pero para toda la vivienda de una vez.</p>
       <ul>
-        <li><strong>Muros:</strong> toma el largo de cada pared por la altura y le descuenta puertas y ventanas. Un muro que tiene ambientes de los dos lados se cuenta como interior; el resto, como exterior. Cada clase tiene un ladrillo por defecto, y a cualquier muro le podés elegir uno distinto tocándolo. Con esa superficie calcula los ladrillos de cada tipo y el mortero de asiento.</li>
+        <li><strong>Muros:</strong> toma el largo de cada pared por la altura y le descuenta puertas y ventanas. Un muro que tiene ambientes de los dos lados se cuenta como interior; el resto, como exterior. Cada clase tiene un tipo de muro por defecto, y a cualquier muro le podés elegir otro tocándolo. Con esa superficie calcula los ladrillos de cada tipo y el mortero de asiento.</li>
+        <li><strong>Tipos de muro:</strong> como en los programas BIM, cada tipo es un ladrillo más las capas de revoque de cada cara (azotado hidrófugo, grueso y fino). El plano dibuja el espesor terminado y los revoques salen capa por capa. Si cambiás un tipo, cambian todos los muros que lo usan.</li>
         <li><strong>Ambientes:</strong> cada espacio cerrado por paredes es un ambiente. Su superficie útil se mide entre ejes de muro y se le descuenta el espesor de las paredes.</li>
         <li><strong>Revoques:</strong> grueso a la cal y fino en bolsa sobre las caras interiores; al exterior se suma el azotado hidrófugo.</li>
         <li><strong>Contrapiso, carpeta y pisos:</strong> se calculan sobre la superficie útil. A cada ambiente le podés elegir el piso: cerámico, porcelanato, flotante o cemento alisado, con su adhesivo y sus zócalos.</li>
@@ -409,7 +410,8 @@ const PLANNER = {
       <p>El plano se guarda solo en tu navegador, en este dispositivo. No se sube a ningún servidor y no hace falta crear una cuenta. Si borrás los datos del navegador o cambiás de dispositivo, el plano no va a estar.</p>`,
   faqs: [
     ["¿Cómo dibujo una pared con una medida exacta?", "Mientras la dibujás, escribí el largo en metros y apretá Enter. También podés tocarla después con Seleccionar y cambiarle el largo."],
-    ["¿Puedo usar un ladrillo distinto en cada muro?", "Sí, de tres maneras. Antes de dibujar, elegís el ladrillo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de ladrillo a mitad de camino, lo dividís en dos."],
+    ["¿Puedo usar un muro distinto en cada pared?", "Sí, de tres maneras. Antes de dibujar, elegís el tipo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de tipo a mitad de camino, lo dividís en dos."],
+    ["¿Qué es un tipo de muro?", "Es la receta de un muro: qué ladrillo lleva y qué revoques tiene de cada lado. Vienen armados los más comunes (bloque portante de 18, ladrillo común de 30 revocado o visto, hueco de 8 para tabiques) y en el panel Tipos de muro podés duplicarlos y cambiarles el ladrillo o el espesor del azotado y del grueso. Al editar un tipo cambian todos los muros que lo usan, en todas las plantas."],
     ["¿Qué puertas y ventanas trae la biblioteca?", "Puertas de 70, 80 y 90 cm, doble, corrediza, puerta balcón, portón de garage y vano sin puerta; ventanas de 100 a 180 cm, ventiluz y paño fijo. A cada una le podés cambiar el ancho y el alto."],
     ["¿Qué materiales calcula el diseñador?", "Ladrillos y mortero, revoques, contrapiso, carpeta, pisos con adhesivo y zócalos, cielorraso, cubierta y pintura interior, con el total de cemento, cal, arena y cascote. También lista aberturas, artefactos y bocas eléctricas."],
 ["¿Verifica el plano con los reglamentos CIRSOC?", "Sí. Revisa los muros contra el CIRSOC 501-E (mampostería de hasta tres pisos en zona sísmica 0): ladrillo portante, espesores, alturas, distancia entre soportes, longitud de muros por dirección y aberturas. Usa las cargas del CIRSOC 101 y cita el artículo de cada control. No reemplaza al profesional."],
@@ -618,10 +620,13 @@ function plannerPage() {
     "          </div>",
     "        </details>",
     '        <details class="ws-sec" open><summary>Ajustes de obra</summary>',
-    '          <p class="ws-tip">Estos valores son para toda la obra. Para cambiar el ladrillo de un solo muro, tocalo en el plano.</p>',
+    '          <p class="ws-tip">Estos valores son para toda la obra. Para cambiar el tipo de un solo muro, tocalo en el plano.</p>',
     '          <form class="tool-form" data-settings novalidate>',
     "          " + p.fields.join("\n          "),
     "          </form>",
+    "        </details>",
+    '        <details class="ws-sec" data-types-box><summary>Tipos de muro</summary>',
+    '          <div class="type-editor" data-types></div>',
     "        </details>",
     '        <details class="ws-sec" open><summary>Capas</summary>',
     "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["notes", "Anotaciones"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
