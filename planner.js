@@ -1342,7 +1342,7 @@
           let html = '<div class="bg-top">' + stat("Precio final", money(b.total), "is-main") + stat("Costo directo", money(b.direct)) + stat("Materiales", money(b.mat)) + stat("Mano de obra", money(b.mo)) +
             (b.area ? stat("Por m² nuevo", money(b.total / b.area)) : "") + "</div>" +
             '<div class="bg-pase">' + pct("gg", "Gastos generales") + pct("ben", "Beneficio") + pct("iva", "IVA") + "</div>" +
-            '<p class="sp-sum">Precios de referencia de ' + esc(b.date) + ". Cambiá cualquier precio en su casillero: los de materiales y mano de obra quedan guardados en este dispositivo y valen también en las calculadoras; los de aberturas y artefactos, en este plano." +
+            '<p class="sp-sum">' + "El sitio no trae precios, porque cambian según la fecha, la zona y el proveedor. Cargá cada uno en su casillero: los de materiales y mano de obra quedan guardados en este dispositivo y valen también en las calculadoras; los de aberturas y artefactos, en este plano." +
             (b.phased ? " Obra con partes existentes: se presupuesta solo lo nuevo y la demolición." : "") + "</p>" +
             (b.missing.length ? '<p class="cost-missing">Falta el precio de ' + b.missing.length + (b.missing.length === 1 ? " ítem" : " ítems") + ": el total no los incluye. Están marcados en amarillo.</p>" : "");
           b.rubros.forEach(function (r, ri) {
@@ -1359,7 +1359,7 @@
             '<ul class="result-notes"><li>Cantidades del cómputo del plano, con su desperdicio. Cemento y cal van en bolsas con decimales: al comprar, se redondea el total de la obra.</li>' +
             "<li>No incluye estructura de hormigón armado, instalación sanitaria ni de gas, tirantería del techo, flete ni honorarios profesionales.</li>" +
             "<li>Estimación para presupuestar: no reemplaza el presupuesto de un profesional.</li></ul>" +
-            '<button type="button" class="btn btn-ghost btn-sm" data-bg-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Volver a los precios de referencia de materiales y mano de obra</button>";
+            '<button type="button" class="btn btn-ghost btn-sm" data-bg-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Borrar mis precios de materiales y mano de obra</button>";
           return html;
         }
         function change(e) {
@@ -1388,11 +1388,24 @@
         }
         const panel = U.open({
           title: "Presupuesto de obra",
-          actions: [{ id: "csv", label: "Descargar para Excel" }, { id: "print", label: "Imprimir", ghost: true }],
+          actions: [{ id: "csv", label: "Descargar para Excel" }, { id: "print", label: "Imprimir", ghost: true }].concat(brand.apu ? [{ id: "send", label: "Pasar al presupuesto por rubros", ghost: true }] : []),
           render: render, change: change,
           click: function (e) { if (e.target.closest("[data-bg-reset]")) { prices = {}; savePrices(prices); panel.refresh(); } },
           action: function (id) {
             if (id === "print") { window.print(); return; }
+            if (id === "send") { // el presupuesto del plano pasa a la página de presupuesto, donde se le suman otros rubros
+              const KEY = "calcuobra.presupuesto.v1";
+              try {
+                let store;
+                try { store = brand.apu.clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { store = brand.apu.empty(); }
+                Object.assign(prices, brand.apu.fromPlan(store, BG.build(plan, prices)));
+                if (!store.name && !/^plano sin t/i.test(title.value.trim())) store.name = title.value.trim();
+                localStorage.setItem(KEY, JSON.stringify(store));
+                savePrices(prices);
+                location.href = "presupuesto.html";
+              } catch (e) { hint.textContent = "Tu navegador no deja guardar el presupuesto (¿ventana privada?)."; }
+              return;
+            }
             download(fileName("csv").replace(/\.csv$/, "-presupuesto.csv"), new Blob([BG.csv(BG.build(plan, prices))], { type: "text/csv;charset=utf-8" }));
           }
         });

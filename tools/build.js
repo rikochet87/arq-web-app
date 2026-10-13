@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const VERSION = "20261013"; // subilo en cada publicación para que los navegadores tomen los cambios
+const VERSION = "20261015"; // subilo en cada publicación para que los navegadores tomen los cambios
 const SITE_URL = ""; // ej. "https://www.tudominio.com.ar" — al completarlo se generan canonical, sitemap.xml y robots.txt
 // Datos del responsable del sitio, para las páginas legales. Lo que quede vacío aparece marcado como TODO en la página.
 const OWNER = {
@@ -356,7 +356,7 @@ const PLANNER = {
   file: "disenador-de-planos.html",
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
   app: true,
-  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "lib/schedules.js", "lib/costs.js", "lib/budget.js", "view3d.js", "docs.js", "panel.js", "planner.js"],
+  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "lib/schedules.js", "lib/costs.js", "lib/budget.js", "lib/apu.js", "view3d.js", "docs.js", "panel.js", "planner.js"],
   title: "Diseñador de planos con cómputo de materiales | CalcuObra",
   description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
@@ -412,7 +412,7 @@ const PLANNER = {
     ["¿Cómo dibujo una pared con una medida exacta?", "Mientras la dibujás, escribí el largo en metros y apretá Enter. También podés tocarla después con Seleccionar y cambiarle el largo."],
     ["¿Puedo usar un muro distinto en cada pared?", "Sí, de tres maneras. Antes de dibujar, elegís el tipo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de tipo a mitad de camino, lo dividís en dos."],
     ["¿Sirve para una ampliación o una refacción?", "Sí. Tocá cada muro o abertura que ya existe y elegí su fase: existente o existente a demoler (o dibujá lo existente con la fase Existente elegida antes de empezar). Lo nuevo se dibuja como siempre. El cómputo cuenta solo lo que se construye y suma la demolición con el escombro y los contenedores. En Capas › Fases podés ver el plano como queda, como está hoy o con los colores del plano municipal: existente, a demoler en amarillo y a construir en rojo."],
-    ["¿Arma la planilla de carpinterías y el presupuesto?", "Sí. Planillas muestra las carpinterías con su código (P1, V1…, también marcados en el plano) y los locales con superficie, piso, zócalo y paredes; se editan en la tabla y se descargan para Excel. Presupuesto toma las cantidades del cómputo y les pone precio a materiales y mano de obra, con gastos generales, beneficio e IVA. Los precios se pueden cambiar uno por uno."],
+    ["¿Arma la planilla de carpinterías y el presupuesto?", "Sí. Planillas muestra las carpinterías con su código (P1, V1…, también marcados en el plano) y los locales con superficie, piso, zócalo y paredes; se editan en la tabla y se descargan para Excel. Presupuesto toma las cantidades del cómputo y las multiplica por los precios de materiales y mano de obra que cargues, con gastos generales, beneficio e IVA. El sitio no trae precios: los ponés vos y quedan guardados en tu dispositivo."],
     ["¿Qué son las plantillas de vista?", "Son configuraciones de un toque, como en los programas BIM. Municipal muestra las fases con sus colores y arma las láminas con balance de superficies e iluminación. Obra muestra cotas, códigos de carpintería y electricidad, y suma a las láminas las planillas de carpinterías y locales. Cliente deja el plano limpio, con muebles y sin cotas. Después podés ajustar cualquier capa a mano."],
     ["¿Qué es un tipo de muro?", "Es la receta de un muro: qué ladrillo lleva y qué revoques tiene de cada lado. Vienen armados los más comunes (bloque portante de 18, ladrillo común de 30 revocado o visto, hueco de 8 para tabiques) y en el panel Tipos de muro podés duplicarlos y cambiarles el ladrillo o el espesor del azotado y del grueso. Al editar un tipo cambian todos los muros que lo usan, en todas las plantas."],
     ["¿Qué puertas y ventanas trae la biblioteca?", "Puertas de 70, 80 y 90 cm, doble, corrediza, puerta balcón, portón de garage y vano sin puerta; ventanas de 100 a 180 cm, ventiluz y paño fijo. A cada una le podés cambiar el ancho y el alto."],
@@ -716,6 +716,7 @@ function layout(p, body) {
       <a class="logo" href="index.html">${LOGO}${BRAND.name}</a>
       <nav class="site-nav" aria-label="Principal">
         <a class="nav-link" href="${PLANNER.file}">Diseñador de planos</a>
+        <a class="nav-link" href="presupuesto.html">Presupuesto</a>
         <a class="nav-link" href="index.html#render">Render 3D</a>
         <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
         <a class="btn btn-sm" href="${PLANNER.file}">Empezar a dibujar</a>
@@ -751,7 +752,7 @@ ${PAGES.filter((p) => p.key !== exceptKey).map((p) => `        <li><a class="car
 }
 
 function calculatorPage(p) {
-  p.js = ["lib/manifest.js", "lib/calc.js", "lib/costs.js", "main.js"];
+  p.js = ["lib/manifest.js", "lib/calc.js", "lib/costs.js", "lib/apu.js", "main.js"];
   p.ld = [
     Object.assign({
       "@context": "https://schema.org", "@type": "WebApplication", name: p.h1, description: p.description,
@@ -800,6 +801,67 @@ ${AD("en medio del contenido")}
     <section class="section more">
       <h2>Más calculadoras</h2>
       ${cards(p.key)}
+    </section>`);
+}
+
+// ---------- Presupuesto de obra ----------
+const BUDGET = {
+  file: "presupuesto.html",
+  title: "Presupuesto de obra con análisis de precios | CalcuObra",
+  description: "Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.",
+  js: ["lib/manifest.js", "lib/calc.js", "lib/rubros.js", "lib/costs.js", "lib/apu.js", "presupuesto.js"],
+  terms: [
+    ["Rubro", "Un trabajo de la obra que se mide en una unidad: un metro cuadrado de pared, un metro cúbico de hormigón, un metro de zócalo."],
+    ["Cómputo", "Cuánto hay de cada rubro en tu obra. Si la casa tiene 120 m² de pared, el cómputo de ese rubro es 120."],
+    ["Análisis de precios", "La receta de un rubro: qué materiales y cuántas horas de oficial y de ayudante lleva una unidad. Con tus precios da el precio unitario."],
+    ["Precio unitario", "Lo que cuesta hacer una unidad del rubro, sumando materiales y mano de obra."],
+    ["Costo directo", "Materiales más mano de obra de todos los rubros, sin gastos generales, ganancia ni impuestos."],
+    ["Gastos generales y beneficio", "Los gastos que no van a un trabajo en particular (fletes, herramientas, seguros, oficina) y tu ganancia. Se suman como porcentaje del costo."]
+  ],
+  faqs: [
+    ["¿Por qué no trae precios cargados?", "Porque cambian según la fecha, la zona y el proveedor, y un precio viejo da un presupuesto equivocado. Cargás los tuyos una sola vez: quedan guardados en tu dispositivo y sirven para todos los rubros, las calculadoras y el diseñador de planos."],
+    ["¿De dónde salen las cantidades de cada análisis?", "Son rendimientos habituales de obra, tomados de análisis de precios usados en vivienda. Sirven como punto de partida: abrí cualquier rubro y cambiá las cantidades y las horas por las de tu forma de trabajar."],
+    ["¿Puedo crear mis propios rubros y materiales?", "Sí. En «Rubros y análisis de precios» creás un rubro nuevo, con análisis o con precio directo si te lo cotizan cerrado. En «Materiales» agregás los que falten."],
+    ["¿Cómo traigo las cantidades?", "Las podés escribir a mano, sumarlas desde cada calculadora con «Sumar al presupuesto», o pasar el presupuesto completo de un plano desde el diseñador."],
+    ["¿Dónde queda guardado?", "En el navegador de tu dispositivo: no se sube a ningún servidor. Para llevarlo a otra computadora o no perderlo, usá «Guardar copia» y después «Abrir copia»."],
+    ["¿Sirve como presupuesto para un cliente?", "Te da los números. Antes de entregarlo revisá cantidades, precios y porcentajes: son estimaciones y la responsabilidad del presupuesto es de quien lo firma."]
+  ]
+};
+
+function budgetPage() {
+  const p = BUDGET;
+  p.ld = [
+    Object.assign({ "@context": "https://schema.org", "@type": "WebApplication", name: "Presupuesto de obra", description: p.description, applicationCategory: "BusinessApplication", operatingSystem: "Any", inLanguage: "es-AR",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "ARS" } }, SITE_URL ? { url: SITE_URL + "/" + p.file } : {}),
+    { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: p.faqs.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }
+  ];
+  return layout(p, `    <section class="hero">
+      <p class="eyebrow">Gratis · Sin registro · Con tus precios</p>
+      <h1>Presupuesto de obra</h1>
+      <p class="lead">Elegí los trabajos, poné las cantidades y cargá tus precios. Cada trabajo ya sabe qué materiales y cuántas horas lleva, y lo podés ajustar a tu forma de trabajar.</p>
+    </section>
+
+    <section class="pb" data-budget-app>
+      <noscript><p class="result-error">El presupuesto necesita JavaScript para funcionar.</p></noscript>
+    </section>
+    <p class="badge">Todo queda guardado en este dispositivo: no se sube a ningún lado. Los resultados son estimaciones para presupuestar.</p>
+
+    <section class="section">
+      <h2>Las palabras del presupuesto</h2>
+      <dl class="pb-terms">
+        ${p.terms.map(([t, d]) => `<div><dt>${t}</dt><dd>${d}</dd></div>`).join("\n        ")}
+      </dl>
+    </section>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      ${p.faqs.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("\n      ")}
+    </section>
+
+    <section class="section more">
+      <h2>Para sacar las cantidades</h2>
+      <p class="lead">Calculá un rubro y tocá «Sumar al presupuesto», o dibujá la casa en el <a href="${PLANNER.file}">diseñador de planos</a> y pasá el presupuesto entero.</p>
+      ${cards()}
     </section>`);
 }
 
@@ -879,6 +941,12 @@ function homePage() {
     "      " + cards(),
     "    </section>",
     "",
+    '    <section class="section">',
+    "      <h2>Presupuesto de obra</h2>",
+    '      <p class="lead">Armá el presupuesto por rubros, con análisis de precios: elegís los trabajos, ponés las cantidades y cargás tus precios de materiales y mano de obra. Las calculadoras y el diseñador le pasan las cantidades con un botón.</p>',
+    '      <div class="hero-cta"><a class="btn btn-lg" href="' + BUDGET.file + '">Armar un presupuesto</a></div>',
+    "    </section>",
+    "",
     AD("portada"),
     "",
     '    <section class="section prose">',
@@ -911,6 +979,7 @@ const PRIVACY = `      <p>Última actualización: ${LEGAL_DATE}.</p>
         <li><strong>Calculadoras:</strong> las medidas que escribís se procesan en tu navegador. No se envían ni se guardan en ningún servidor.</li>
         <li><strong>Diseñador de planos:</strong> el plano se guarda automáticamente en el almacenamiento local de tu navegador, para que lo encuentres al volver. Queda en ese dispositivo y en ese navegador: nosotros no lo recibimos ni podemos verlo.</li>
         <li><strong>Fotos e imágenes:</strong> la imagen que subís para calcar y la foto de «Boceto a plano» se leen y se procesan en tu dispositivo. No se suben a ningún servidor. La imagen para calcar se guarda junto con el plano, en tu navegador.</li>
+        <li><strong>Presupuesto de obra:</strong> los trabajos, las cantidades, los rubros que creás y los precios que cargás se guardan en el almacenamiento local de tu navegador. No se envían a ningún servidor; la copia que descargás se genera en tu dispositivo.</li>
         <li><strong>Planos de AutoCAD:</strong> el archivo DXF que subís para ver el render o para abrirlo en el diseñador se lee y se convierte en tu dispositivo. No se sube a ningún servidor.</li>
         <li><strong>Archivos exportados:</strong> los PNG, SVG, DXF, PDF y archivos de plano que descargás se generan en tu dispositivo.</li>
       </ul>
@@ -949,6 +1018,7 @@ const LEGAL = `      <p>Última actualización: ${LEGAL_DATE}.</p>
       <h2>Uso de las calculadoras y del cómputo</h2>
       <p>Los resultados son estimaciones orientativas, pensadas para presupuestar y comprar materiales. Dependen de las medidas reales de los materiales, de la mano de obra y de las condiciones de cada obra, y no reemplazan el cálculo, el proyecto ni la dirección de obra de un profesional matriculado.</p>
       <p>Los rendimientos, dosificaciones y porcentajes de desperdicio son valores habituales de referencia. Antes de comprar, verificalos con la ficha técnica del fabricante y con quien dirija la obra.</p>
+      <p>El presupuesto de obra no incluye precios: los carga cada usuario. Las cantidades de materiales y las horas de mano de obra de cada rubro son rendimientos de referencia y pueden no coincidir con los de tu obra; el resultado es una estimación y no constituye una oferta ni un precio garantizado.</p>
       <h2>Verificaciones reglamentarias del diseñador</h2>
       <p>El diseñador compara el plano con algunos requisitos de los reglamentos CIRSOC 501-E y CIRSOC 101, y avisa cuando corresponde considerar el INPRES-CIRSOC 103. Son controles simplificados y automáticos: no constituyen un cálculo estructural, no cubren todos los requisitos de esos reglamentos ni las exigencias de cada municipio, y no habilitan a construir.</p>
       <p>Al abrir un plano de AutoCAD (DXF), los muros, las aberturas y los nombres de los ambientes se deducen del dibujo de forma automática y pueden no coincidir con el original: revisalos antes de usar el cómputo. El render es una imagen ilustrativa, no una representación exacta de la obra terminada.</p>
@@ -979,12 +1049,13 @@ function write(file, content) {
 console.log("Generando sitio…");
 write("index.html", homePage());
 write(PLANNER.file, plannerPage());
+write(BUDGET.file, budgetPage());
 PAGES.forEach((p) => write(p.file, calculatorPage(p)));
 write("privacidad.html", legalPage("privacidad.html", "Política de privacidad", PRIVACY));
 write("aviso-legal.html", legalPage("aviso-legal.html", "Aviso legal", LEGAL));
 
 if (SITE_URL) {
-  const files = ["", PLANNER.file, ...PAGES.map((p) => p.file)];
+  const files = ["", PLANNER.file, BUDGET.file, ...PAGES.map((p) => p.file)];
   write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${files.map((f) => `  <url><loc>${SITE_URL}/${f}</loc></url>`).join("\n")}

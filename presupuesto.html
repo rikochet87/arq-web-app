@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presupuesto de obra con análisis de precios | CalcuObra</title>
+  <meta name="description" content="Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="CalcuObra">
+  <meta property="og:title" content="Presupuesto de obra con análisis de precios | CalcuObra">
+  <meta property="og:description" content="Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.">
+  <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
+  <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css?v=20261015">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Presupuesto de obra","description":"Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.","applicationCategory":"BusinessApplication","operatingSystem":"Any","inLanguage":"es-AR","offers":{"@type":"Offer","price":"0","priceCurrency":"ARS"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"¿Por qué no trae precios cargados?","acceptedAnswer":{"@type":"Answer","text":"Porque cambian según la fecha, la zona y el proveedor, y un precio viejo da un presupuesto equivocado. Cargás los tuyos una sola vez: quedan guardados en tu dispositivo y sirven para todos los rubros, las calculadoras y el diseñador de planos."}},{"@type":"Question","name":"¿De dónde salen las cantidades de cada análisis?","acceptedAnswer":{"@type":"Answer","text":"Son rendimientos habituales de obra, tomados de análisis de precios usados en vivienda. Sirven como punto de partida: abrí cualquier rubro y cambiá las cantidades y las horas por las de tu forma de trabajar."}},{"@type":"Question","name":"¿Puedo crear mis propios rubros y materiales?","acceptedAnswer":{"@type":"Answer","text":"Sí. En «Rubros y análisis de precios» creás un rubro nuevo, con análisis o con precio directo si te lo cotizan cerrado. En «Materiales» agregás los que falten."}},{"@type":"Question","name":"¿Cómo traigo las cantidades?","acceptedAnswer":{"@type":"Answer","text":"Las podés escribir a mano, sumarlas desde cada calculadora con «Sumar al presupuesto», o pasar el presupuesto completo de un plano desde el diseñador."}},{"@type":"Question","name":"¿Dónde queda guardado?","acceptedAnswer":{"@type":"Answer","text":"En el navegador de tu dispositivo: no se sube a ningún servidor. Para llevarlo a otra computadora o no perderlo, usá «Guardar copia» y después «Abrir copia»."}},{"@type":"Question","name":"¿Sirve como presupuesto para un cliente?","acceptedAnswer":{"@type":"Answer","text":"Te da los números. Antes de entregarlo revisá cantidades, precios y porcentajes: son estimaciones y la responsabilidad del presupuesto es de quien lo firma."}}]}</script>
+  <script defer src="lib/manifest.js?v=20261015"></script>
+  <script defer src="lib/calc.js?v=20261015"></script>
+  <script defer src="lib/rubros.js?v=20261015"></script>
+  <script defer src="lib/costs.js?v=20261015"></script>
+  <script defer src="lib/apu.js?v=20261015"></script>
+  <script defer src="presupuesto.js?v=20261015"></script>
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="logo" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7"/></svg>CalcuObra</a>
+      <nav class="site-nav" aria-label="Principal">
+        <a class="nav-link" href="disenador-de-planos.html">Diseñador de planos</a>
+        <a class="nav-link" href="presupuesto.html">Presupuesto</a>
+        <a class="nav-link" href="index.html#render">Render 3D</a>
+        <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
+        <a class="btn btn-sm" href="disenador-de-planos.html">Empezar a dibujar</a>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="container">
+    <section class="hero">
+      <p class="eyebrow">Gratis · Sin registro · Con tus precios</p>
+      <h1>Presupuesto de obra</h1>
+      <p class="lead">Elegí los trabajos, poné las cantidades y cargá tus precios. Cada trabajo ya sabe qué materiales y cuántas horas lleva, y lo podés ajustar a tu forma de trabajar.</p>
+    </section>
+
+    <section class="pb" data-budget-app>
+      <noscript><p class="result-error">El presupuesto necesita JavaScript para funcionar.</p></noscript>
+    </section>
+    <p class="badge">Todo queda guardado en este dispositivo: no se sube a ningún lado. Los resultados son estimaciones para presupuestar.</p>
+
+    <section class="section">
+      <h2>Las palabras del presupuesto</h2>
+      <dl class="pb-terms">
+        <div><dt>Rubro</dt><dd>Un trabajo de la obra que se mide en una unidad: un metro cuadrado de pared, un metro cúbico de hormigón, un metro de zócalo.</dd></div>
+        <div><dt>Cómputo</dt><dd>Cuánto hay de cada rubro en tu obra. Si la casa tiene 120 m² de pared, el cómputo de ese rubro es 120.</dd></div>
+        <div><dt>Análisis de precios</dt><dd>La receta de un rubro: qué materiales y cuántas horas de oficial y de ayudante lleva una unidad. Con tus precios da el precio unitario.</dd></div>
+        <div><dt>Precio unitario</dt><dd>Lo que cuesta hacer una unidad del rubro, sumando materiales y mano de obra.</dd></div>
+        <div><dt>Costo directo</dt><dd>Materiales más mano de obra de todos los rubros, sin gastos generales, ganancia ni impuestos.</dd></div>
+        <div><dt>Gastos generales y beneficio</dt><dd>Los gastos que no van a un trabajo en particular (fletes, herramientas, seguros, oficina) y tu ganancia. Se suman como porcentaje del costo.</dd></div>
+      </dl>
+    </section>
+
+    <section class="section faq">
+      <h2>Preguntas frecuentes</h2>
+      <details><summary>¿Por qué no trae precios cargados?</summary><p>Porque cambian según la fecha, la zona y el proveedor, y un precio viejo da un presupuesto equivocado. Cargás los tuyos una sola vez: quedan guardados en tu dispositivo y sirven para todos los rubros, las calculadoras y el diseñador de planos.</p></details>
+      <details><summary>¿De dónde salen las cantidades de cada análisis?</summary><p>Son rendimientos habituales de obra, tomados de análisis de precios usados en vivienda. Sirven como punto de partida: abrí cualquier rubro y cambiá las cantidades y las horas por las de tu forma de trabajar.</p></details>
+      <details><summary>¿Puedo crear mis propios rubros y materiales?</summary><p>Sí. En «Rubros y análisis de precios» creás un rubro nuevo, con análisis o con precio directo si te lo cotizan cerrado. En «Materiales» agregás los que falten.</p></details>
+      <details><summary>¿Cómo traigo las cantidades?</summary><p>Las podés escribir a mano, sumarlas desde cada calculadora con «Sumar al presupuesto», o pasar el presupuesto completo de un plano desde el diseñador.</p></details>
+      <details><summary>¿Dónde queda guardado?</summary><p>En el navegador de tu dispositivo: no se sube a ningún servidor. Para llevarlo a otra computadora o no perderlo, usá «Guardar copia» y después «Abrir copia».</p></details>
+      <details><summary>¿Sirve como presupuesto para un cliente?</summary><p>Te da los números. Antes de entregarlo revisá cantidades, precios y porcentajes: son estimaciones y la responsabilidad del presupuesto es de quien lo firma.</p></details>
+    </section>
+
+    <section class="section more">
+      <h2>Para sacar las cantidades</h2>
+      <p class="lead">Calculá un rubro y tocá «Sumar al presupuesto», o dibujá la casa en el <a href="disenador-de-planos.html">diseñador de planos</a> y pasá el presupuesto entero.</p>
+      <ul class="cards">
+        <li><a class="card" href="calculadora-ladrillos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19"/></svg><strong>Ladrillos y mortero</strong><span>Cuántos ladrillos, cemento, cal y arena lleva una pared.</span></a></li>
+        <li><a class="card" href="calculadora-hormigon.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5"/></svg><strong>Hormigón</strong><span>Metros cúbicos y bolsas de cemento, arena y piedra.</span></a></li>
+        <li><a class="card" href="calculadora-pintura.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z"/></svg><strong>Pintura</strong><span>Litros de pintura según la superficie y las manos.</span></a></li>
+        <li><a class="card" href="calculadora-ceramicos.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v16H4z M12 4v16 M4 12h16"/></svg><strong>Cerámicos y pisos</strong><span>Cajas, adhesivo y pastina con el desperdicio incluido.</span></a></li>
+        <li><a class="card" href="calculadora-escaleras.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg><strong>Escaleras</strong><span>Cantidad de escalones, huella y contrahuella.</span></a></li>
+        <li><a class="card" href="calculadora-contrapiso.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5"/></svg><strong>Contrapiso y carpeta</strong><span>Volumen y materiales para contrapiso y carpeta.</span></a></li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="container">
+      <nav aria-label="Legales">
+        <a href="index.html">Inicio</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p>Los resultados son estimaciones orientativas para presupuestar y comprar materiales. No reemplazan el cálculo ni la dirección de un profesional matriculado.</p>
+      <p>© 2026 CalcuObra</p>
+    </div>
+  </footer>
+</body>
+</html>

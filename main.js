@@ -26,6 +26,19 @@
   }
   let prices = costs ? loadPrices() : {};
 
+  /* ---------- Presupuesto de obra ----------
+     Lo calculado se puede sumar al presupuesto por rubros (presupuesto.html): pasa como un rubro propio con su cantidad. */
+  const apu = brand.apu, BUDGET_KEY = "calcuobra.presupuesto.v1";
+  function sendToBudget(cost) {
+    let store;
+    try { store = apu.clean(JSON.parse(localStorage.getItem(BUDGET_KEY))); } catch (e) { store = apu.empty(); }
+    const hours = [0, 0];
+    cost.work.forEach(function (w) { hours[0] += w.qty * w.h[0]; hours[1] += w.qty * w.h[1]; });
+    apu.fromCalc(store, cost.measure, cost.items, hours);
+    localStorage.setItem(BUDGET_KEY, JSON.stringify(store)); // si el navegador no deja guardar, falla y se avisa
+    return store.lines.length;
+  }
+
   const num = (x, d) => x.toLocaleString("es-AR", { maximumFractionDigits: d, useGrouping: "always" });
   const PLURALS = { unidad: "unidades", litro: "litros", hora: "horas" };
   const unitsOf = (unit, n) => n === 1 ? unit : (PLURALS[unit] || unit.replace(/^bolsa /, "bolsas "));
@@ -52,7 +65,7 @@
       '<span class="cost-flag" data-t="flag"' + (est.missing.length ? "" : " hidden") + ">" + escHTML(flagText(est)) + "</span></span>" +
       '<span class="cost-total" data-t="summary">' + escHTML(costs.money(est.totals.total)) + "</span></summary>" +
       '<div class="cost-body">' +
-      '<p class="cost-meta">Precios de referencia de ' + escHTML(costs.date) + ". Cambiá los que quieras: tus precios quedan guardados en este dispositivo.</p>" +
+      '<p class="cost-meta">El sitio no trae precios, porque cambian según la fecha, la zona y el proveedor. Cargá los tuyos: quedan guardados en este dispositivo y valen para todas las calculadoras.</p>' +
       '<h3 class="result-section">Materiales</h3>' + est.materials.map(costLineHTML).join("") +
       (est.labor.length ? '<h3 class="result-section">Mano de obra</h3>' + est.labor.map(costLineHTML).join("") +
         '<p class="cost-work">' + escHTML(work) + "</p>" : "") +
@@ -62,7 +75,7 @@
       '<div class="cost-grand"><dt>Total</dt><dd data-t="total">' + costs.money(t.total) + "</dd></div></dl>" +
       '<p class="cost-missing" data-t="missing"' + (est.missing.length ? "" : " hidden") + ">" + escHTML(missingText(est)) + "</p>" +
       '<ul class="result-notes">' + notes.map(function (n) { return "<li>" + escHTML(n) + "</li>"; }).join("") + "</ul>" +
-      '<button type="button" class="btn btn-ghost btn-sm" data-cost-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Volver a los precios de referencia</button>" +
+      '<button type="button" class="btn btn-ghost btn-sm" data-cost-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Borrar mis precios</button>" +
       "</div></details>";
   }
 
@@ -72,7 +85,7 @@
   function costTextLine(est) {
     const t = est.totals;
     return "• Costo estimado: " + costs.money(t.total) + " (materiales " + costs.money(t.materials) +
-      (est.labor.length ? ", mano de obra " + costs.money(t.labor) : "") + "; precios de " + costs.date + ", sin IVA" +
+      (est.labor.length ? ", mano de obra " + costs.money(t.labor) : "") + "; sin IVA" +
       (est.missing.length ? "; falta el precio de " + est.missing.join(", ") : "") + ")";
   }
 
@@ -145,7 +158,9 @@
       '<ul class="result-notes">' + notes + "</ul>" +
       (est ? costHTML(est, costOpen) : "") +
       '<div class="result-actions"><button type="button" class="btn" data-copy>Copiar resultado</button>' +
-      '<a class="btn btn-ghost" data-whatsapp target="_blank" rel="noopener">Enviar por WhatsApp</a></div>';
+      '<a class="btn btn-ghost" data-whatsapp target="_blank" rel="noopener">Enviar por WhatsApp</a>' +
+      (apu && result.cost && result.cost.measure ? '<button type="button" class="btn btn-ghost" data-budget-add>Sumar al presupuesto</button>' : "") + "</div>" +
+      '<p class="cost-meta" data-budget-msg role="status" aria-live="polite" hidden></p>';
   }
 
   function resultText(title, result, est) {
@@ -217,7 +232,7 @@
     form.addEventListener("input", run);
     form.addEventListener("change", run);
     form.addEventListener("submit", function (e) { e.preventDefault(); run(); });
-    // Precio tipeado: se recalcula al instante. Vacío = sin precio. Igual al de referencia = deja de ser propio.
+    // Precio tipeado: se recalcula al instante. Vacío = sin precio.
     out.addEventListener("input", function (e) {
       const input = e.target.closest("[data-price]");
       if (!input || !result) return;
@@ -247,6 +262,15 @@
         prices = {};
         savePrices(prices);
         run();
+        return;
+      }
+      if (e.target.closest("[data-budget-add]") && result && result.cost) {
+        const msg = $("[data-budget-msg]", out);
+        msg.hidden = false;
+        try {
+          const n = sendToBudget(result.cost);
+          msg.innerHTML = "✓ Sumado a tu presupuesto de obra (" + n + (n === 1 ? " trabajo" : " trabajos") + '). <a href="presupuesto.html">Ver presupuesto</a>';
+        } catch (err) { msg.textContent = "Tu navegador no deja guardar el presupuesto (¿ventana privada?)."; }
         return;
       }
       const button = e.target.closest("[data-copy]");
