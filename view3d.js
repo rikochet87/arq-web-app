@@ -307,5 +307,5 @@
     return { meshes: meshes };
   }
 
-  B.view3d = { open: open, close: close };
+  B.view3d = { open: open, close: close, load: load };
 })();

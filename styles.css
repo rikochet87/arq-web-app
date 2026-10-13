@@ -271,6 +271,38 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .hero-stats span { padding: .2rem .55rem; border: 1px solid var(--line); background: #141414; font-size: .72rem; color: var(--muted); }
 .hero-stats b { color: var(--accent); font-variant-numeric: tabular-nums; }
 
+/* De AutoCAD a render (portada) */
+.cad-drop {
+  display: grid; justify-items: center; gap: .6rem; margin-top: 1.2rem; padding: 2.2rem 1rem; text-align: center;
+  background: var(--surface); border: 1px dashed var(--line-hi); border-radius: var(--radius);
+  transition: border-color .15s, background-color .15s;
+}
+.cad-drop.is-over { border-color: var(--accent); background: var(--raised); }
+.cad-drop > svg { width: 40px; height: 40px; color: var(--accent); }
+.cad-drop .hero-cta { justify-content: center; margin-top: .6rem; }
+.cad-drop .badge { max-width: 62ch; }
+.cad-msg { margin-top: .8rem; color: var(--muted); }
+.cad-msg:empty { display: none; }
+.cad-msg.is-error { padding: .7rem .9rem; color: var(--ink); background: #141414; border: 1px solid var(--line); border-left: 3px solid var(--danger); border-radius: var(--radius); }
+.cad-work { display: grid; gap: 1rem; margin-top: 1.2rem; }
+.cad-stage { position: relative; height: min(70vh, 460px); overflow: hidden; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.cad-stage output { min-width: 2.6rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.cad-side { display: grid; gap: .8rem; align-content: start; min-width: 0; }
+.cad-found { font-size: .82rem; color: var(--muted); }
+.cad-plan { padding: .5rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-plan svg { display: block; width: 100%; height: auto; max-height: 260px; background: var(--bg); }
+.cad-side > label, .cad-dxf > label { display: grid; gap: .25rem; font-size: .78rem; font-weight: 500; color: #c8c8c8; }
+.cad-side select { width: 100%; min-height: 40px; padding: .4rem .6rem; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-side select:focus { outline: 1px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.cad-dxf { display: grid; gap: .8rem; }
+.cad-dxf summary { font-size: .78rem; font-weight: 500; color: #c8c8c8; cursor: pointer; }
+.cad-layers { display: grid; gap: .1rem; max-height: 190px; margin-top: .4rem; padding: .4rem .6rem; overflow: auto; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-layers label { display: flex; align-items: center; gap: .5rem; min-height: 30px; font-size: .78rem; }
+.cad-layers small { margin-left: auto; color: var(--muted); }
+.cad-layers input { accent-color: var(--accent); }
+.cad-side .hero-cta { margin-top: .2rem; }
+
 /* Espacio de trabajo del diseñador */
 .ws {
   display: grid; grid-template-columns: minmax(0, 1fr);
@@ -457,6 +489,8 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 @media (min-width: 960px) {
   .hero { padding-top: 3rem; }
   .hero-home { grid-template-columns: 1.05fr 1fr; gap: 3rem; padding-top: 4rem; padding-bottom: 1rem; }
+  .cad-work { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+  .cad-stage { height: 520px; }
   .tool-card { grid-template-columns: 1.1fr 1fr; gap: 1.75rem; padding: 1.5rem; }
   .cards { grid-template-columns: repeat(3, 1fr); }
   .steps { grid-template-columns: repeat(3, 1fr); gap: 2rem; }
@@ -503,7 +537,7 @@ strong, b { font-weight: 500; color: #f0f0f0; }
   .tool-result, .ws-panel, .ws-side { background: none; }
   .site-header, .site-footer, .ad-slot, .result-actions, .more, .ws-top .ws-btn, .ws-top .logo, .ws-group, .ws-menu, .ws-toggle, .ws-level, .ws-side,
   .ws-status, .ws-empty, .planner-hint, .inspector, .ws-panel details:not(:first-child), .ws-panel summary,
-  .steps, .prose, .faq, .hero, .section > h2 { display: none; }
+  .steps, .prose, .faq, .hero, .cad, .section > h2 { display: none; }
   .ws { display: block; height: auto; border: 0; background: none; }
   .ws-top { background: none; }
   .ws-canvas { height: 420px; }

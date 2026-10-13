@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const VERSION = "20261009"; // subilo en cada publicación para que los navegadores tomen los cambios
+const VERSION = "20261013"; // subilo en cada publicación para que los navegadores tomen los cambios
 const SITE_URL = ""; // ej. "https://www.tudominio.com.ar" — al completarlo se generan canonical, sitemap.xml y robots.txt
 // Datos del responsable del sitio, para las páginas legales. Lo que quede vacío aparece marcado como TODO en la página.
 const OWNER = {
@@ -16,7 +16,7 @@ const OWNER = {
   email: "", // correo de contacto
   ads: false // true cuando se active Google AdSense: cambia el texto de cookies y publicidad
 };
-const LEGAL_DATE = "6 de octubre de 2026"; // última actualización de las páginas legales
+const LEGAL_DATE = "13 de octubre de 2026"; // última actualización de las páginas legales
 
 globalThis.window = {};
 for (const lib of ["manifest.js", "calc.js", "plan.js"]) require(path.join(ROOT, "lib", lib));
@@ -356,7 +356,7 @@ const PLANNER = {
   file: "disenador-de-planos.html",
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
   app: true,
-  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "view3d.js", "docs.js", "planner.js"],
+  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "view3d.js", "docs.js", "planner.js"],
   title: "Diseñador de planos con cómputo de materiales | CalcuObra",
   description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
@@ -512,7 +512,7 @@ function plannerPage() {
     '            <button type="button" data-action="open-file">Abrir un archivo…</button>',
     "          </div>",
     "        </details>",
-    '        <input type="file" data-file="plan" accept=".json,application/json" hidden>',
+    '        <input type="file" data-file="plan" accept=".json,.dxf,application/json" hidden>',
     '        <input type="file" data-file="ref" accept="image/*" hidden>',
     '        <input type="file" data-file="sketch" accept="image/*" hidden>',
     "      </div>",
@@ -703,6 +703,7 @@ function layout(p, body) {
       <a class="logo" href="index.html">${LOGO}${BRAND.name}</a>
       <nav class="site-nav" aria-label="Principal">
         <a class="nav-link" href="${PLANNER.file}">Diseñador de planos</a>
+        <a class="nav-link" href="index.html#render">Render 3D</a>
         <a class="nav-link" href="index.html#calculadoras">Calculadoras</a>
         <a class="btn btn-sm" href="${PLANNER.file}">Empezar a dibujar</a>
       </nav>
@@ -793,7 +794,8 @@ function homePage() {
   const p = {
     file: "index.html",
     title: "Planos y calculadoras de construcción gratis | CalcuObra",
-    description: "Dibujá el plano de tu casa y obtené el cómputo de materiales al instante. Más calculadoras de ladrillos, hormigón, pintura y pisos. Gratis.",
+    description: "Dibujá el plano de tu casa y obtené el cómputo de materiales al instante. Subí un plano de AutoCAD (DXF) y miralo en un render 3D. Más calculadoras de ladrillos, hormigón, pintura y pisos. Gratis.",
+    js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/dxfin.js", "view3d.js", "render.js", "cad.js"],
     ld: [Object.assign({ "@context": "https://schema.org", "@type": "WebSite", name: BRAND.name, inLanguage: "es-AR" }, SITE_URL ? { url: SITE_URL + "/" } : {})]
   };
   const preview = BRAND.plan.staticSVG(BRAND.plan.sample());
@@ -805,13 +807,48 @@ function homePage() {
     '        <p class="lead">Un diseñador de planos que calcula ladrillos, cemento, contrapiso, pisos y pintura mientras dibujás. Con las medidas y los envases que se consiguen en Argentina.</p>',
     '        <div class="hero-cta">',
     '          <a class="btn btn-lg" href="' + PLANNER.file + '">Empezar a dibujar</a>',
-    '          <a class="btn btn-ghost btn-lg" href="' + PLANNER.file + '#ejemplo">Abrir plano de ejemplo</a>',
+    '          <a class="btn btn-ghost btn-lg" href="#render">Subir un plano de AutoCAD</a>',
     "        </div>",
     "      </div>",
     '      <a class="hero-preview" href="' + PLANNER.file + '#ejemplo" aria-label="Abrir el plano de ejemplo en el diseñador">',
     "        " + preview.svg,
     '        <span class="hero-stats">' + preview.model.main.map((m) => "<span><b>" + m.value + "</b> " + m.unit.replace("unidades", "ladrillos").replace(/^bolsas.*/, "bolsas de cemento") + "</span>").join("") + "</span>",
     "      </a>",
+    "    </section>",
+    "",
+    '    <section class="section cad" id="render" data-cad data-cad-planner="' + PLANNER.file + '">',
+    "      <h2>De AutoCAD a render 3D</h2>",
+    '      <p class="lead">Subí la planta de tu casa en DXF y mirala levantada en 3D, con sol, sombras y materiales. Movés la cámara, cambiás la hora del día y te llevás la imagen.</p>',
+    '      <div class="cad-drop" data-cad-drop>',
+    "        " + icon("M12 16V4 M7 9l5-5 5 5 M4 15v5h16v-5"),
+    "        <strong>Arrastrá acá tu plano en DXF</strong>",
+    '        <div class="hero-cta">',
+    '          <button type="button" class="btn btn-lg" data-cad-act="pick">Elegir archivo</button>',
+    '          <button type="button" class="btn btn-ghost btn-lg" data-cad-act="sample">Probar con la casa de ejemplo</button>',
+    "        </div>",
+    '        <p class="badge">¿Lo tenés en DWG? En AutoCAD: Guardar como → «DXF de AutoCAD 2000» o posterior. El archivo se lee en tu dispositivo: no se sube a ningún lado.</p>',
+    '        <input type="file" data-cad-file accept=".dxf,.dwg" hidden>',
+    "      </div>",
+    '      <p class="cad-msg" data-cad-msg role="status" aria-live="polite"></p>',
+    '      <div class="cad-work" data-cad-work hidden>',
+    '        <div class="cad-stage" data-cad-stage></div>',
+    '        <div class="cad-side">',
+    '          <p class="cad-found" data-cad-found></p>',
+    '          <div class="cad-plan" data-cad-plan></div>',
+    '          <label>Techo <select data-cad-opt="roof">' + Object.keys(DATA.roofs).map((k) => '<option value="' + k + '">' + (k === "none" ? "Sin techo" : DATA.roofs[k].label) + "</option>").join("") + "</select></label>",
+    '          <div class="cad-dxf" data-cad-dxf hidden>',
+    '            <label>Dibujo del archivo <select data-cad-opt="group"></select></label>',
+    '            <label>Unidad del dibujo <select data-cad-opt="unit"><option value="0">Automática</option><option value="100">Metros</option><option value="1">Centímetros</option><option value="0.1">Milímetros</option></select></label>',
+    '            <details><summary>Capas que son muros</summary><div class="cad-layers" data-cad-layers></div></details>',
+    "          </div>",
+    '          <div class="hero-cta">',
+    '            <button type="button" class="btn" data-cad-act="edit">Abrir en el diseñador</button>',
+    '            <button type="button" class="btn btn-ghost" data-cad-act="again">Subir otro plano</button>',
+    "          </div>",
+    '          <p class="badge">En el diseñador podés corregir lo que se haya leído mal, amoblar y sacar el cómputo de materiales.</p>',
+    "        </div>",
+    "      </div>",
+    '      <noscript><p class="result-error">El render necesita JavaScript para funcionar.</p></noscript>',
     "    </section>",
     "",
     '    <section class="section">',
@@ -861,6 +898,7 @@ const PRIVACY = `      <p>Última actualización: ${LEGAL_DATE}.</p>
         <li><strong>Calculadoras:</strong> las medidas que escribís se procesan en tu navegador. No se envían ni se guardan en ningún servidor.</li>
         <li><strong>Diseñador de planos:</strong> el plano se guarda automáticamente en el almacenamiento local de tu navegador, para que lo encuentres al volver. Queda en ese dispositivo y en ese navegador: nosotros no lo recibimos ni podemos verlo.</li>
         <li><strong>Fotos e imágenes:</strong> la imagen que subís para calcar y la foto de «Boceto a plano» se leen y se procesan en tu dispositivo. No se suben a ningún servidor. La imagen para calcar se guarda junto con el plano, en tu navegador.</li>
+        <li><strong>Planos de AutoCAD:</strong> el archivo DXF que subís para ver el render o para abrirlo en el diseñador se lee y se convierte en tu dispositivo. No se sube a ningún servidor.</li>
         <li><strong>Archivos exportados:</strong> los PNG, SVG, DXF, PDF y archivos de plano que descargás se generan en tu dispositivo.</li>
       </ul>
       <p>Para borrar el plano guardado, borrá los datos de este sitio desde la configuración de tu navegador.</p>
@@ -900,6 +938,7 @@ const LEGAL = `      <p>Última actualización: ${LEGAL_DATE}.</p>
       <p>Los rendimientos, dosificaciones y porcentajes de desperdicio son valores habituales de referencia. Antes de comprar, verificalos con la ficha técnica del fabricante y con quien dirija la obra.</p>
       <h2>Verificaciones reglamentarias del diseñador</h2>
       <p>El diseñador compara el plano con algunos requisitos de los reglamentos CIRSOC 501-E y CIRSOC 101, y avisa cuando corresponde considerar el INPRES-CIRSOC 103. Son controles simplificados y automáticos: no constituyen un cálculo estructural, no cubren todos los requisitos de esos reglamentos ni las exigencias de cada municipio, y no habilitan a construir.</p>
+      <p>Al abrir un plano de AutoCAD (DXF), los muros, las aberturas y los nombres de los ambientes se deducen del dibujo de forma automática y pueden no coincidir con el original: revisalos antes de usar el cómputo. El render es una imagen ilustrativa, no una representación exacta de la obra terminada.</p>
       <p>El cómputo de la instalación eléctrica cuenta bocas y estima caños y cables. No es un proyecto eléctrico ni verifica el cumplimiento de la reglamentación de la Asociación Electrotécnica Argentina.</p>
       <p>Toda obra requiere la intervención de profesionales matriculados y los permisos que exija la autoridad local.</p>
       <h2>Responsabilidad</h2>
@@ -908,7 +947,7 @@ const LEGAL = `      <p>Última actualización: ${LEGAL_DATE}.</p>
       <h2>Propiedad intelectual</h2>
       <p>Los textos, el diseño y el código propio de ${BRAND.name} pertenecen a su titular. Podés usar el sitio libremente para tus obras y presupuestos; no está permitido copiarlo o republicarlo como propio.</p>
       <p>Los planos que dibujás y los cómputos que obtenés son tuyos: podés usarlos, imprimirlos y compartirlos sin pedir permiso.</p>
-      <p>La vista 3D usa la biblioteca three.js, distribuida bajo licencia MIT.</p>
+      <p>La vista 3D y el render usan la biblioteca three.js, distribuida bajo licencia MIT.</p>
       <h2>Enlaces y servicios de terceros</h2>
       <p>El sitio puede incluir enlaces, anuncios o servicios de terceros. El titular no controla su contenido ni responde por él.</p>
       <h2>Privacidad</h2>

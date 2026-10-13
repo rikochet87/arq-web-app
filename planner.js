@@ -11,6 +11,7 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
   const STORE = "calcuobra.plano.v1";
+  const HANDOFF = "calcuobra.importado"; // plano que manda la portada (cad.js) al abrir el diseñador con #importado
   const SHELF = "calcuobra.biblioteca.v1"; // "Mis muebles": queda en el navegador, aparte del plano, y sirve para todos los planos
   const SHELF_MAX = 40;
   const GRID = 10; // cm
@@ -177,14 +178,19 @@
         return level;
       });
     }
-    // Arranca con el plano guardado o vacío. Con #ejemplo en la dirección carga la casa de muestra
-    // (el plano guardado, si había, queda a un "Deshacer" de distancia).
+    // Arranca con el plano guardado o vacío. Con #ejemplo en la dirección carga la casa de muestra y con
+    // #importado el plano que se subió en la portada (el plano guardado, si había, queda a un "Deshacer" de distancia).
     function start() {
       const saved = load();
-      if (location.hash !== "#ejemplo") return saved || P.empty();
+      let fresh = null;
+      if (location.hash === "#ejemplo") fresh = P.sample();
+      else if (location.hash === "#importado") {
+        try { fresh = normalize(JSON.parse(localStorage.getItem(HANDOFF))); localStorage.removeItem(HANDOFF); } catch (e) { /* sin almacenamiento */ }
+      }
+      if (!fresh) return saved || P.empty();
       if (saved && saved.walls.length) history.push(JSON.stringify(Object.assign({}, saved, { ref: undefined })));
       try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* file:// */ }
-      return P.sample();
+      return fresh;
     }
     // La imagen de referencia pesa mucho: no entra en el historial y, si no cabe, tampoco en el guardado.
     const snapshot = () => JSON.stringify(Object.assign({}, plan, { ref: undefined }));
@@ -845,12 +851,16 @@
     function openPlanFile(file) {
       const reader = new FileReader();
       reader.onload = function () {
-        let opened = null;
+        let opened = null, read = null;
         try { opened = normalize(JSON.parse(reader.result)); } catch (e) { /* no es JSON */ }
-        if (!opened) { hint.textContent = "Ese archivo no es un plano de " + (brand.name || "este sitio") + "."; return; }
+        if (!opened && brand.cad) { // un dibujo de AutoCAD: se deducen los muros y las aberturas
+          try { read = brand.cad.toPlan(brand.cad.read(reader.result)); opened = normalize(read.plan); } catch (e) { /* tampoco es un DXF que se pueda leer */ }
+        }
+        if (!opened) { hint.textContent = "Ese archivo no es un plano de " + (brand.name || "este sitio") + " ni un DXF con muros que se puedan leer."; return; }
         pushHistory();
         plan = opened; chain = null;
         fit(); commit(null); syncSettings(); setTool("select");
+        if (read) hint.textContent = "DXF abierto: " + read.stats.walls + " muros y " + (read.stats.doors + read.stats.windows + read.stats.opens) + " aberturas deducidos del dibujo. Revisalos; con Deshacer volvés al plano anterior.";
       };
       reader.readAsText(file);
     }
