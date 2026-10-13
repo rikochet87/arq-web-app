@@ -17,8 +17,15 @@
   const GRID = 10; // cm
   const UNTITLED = "Plano sin título";
   const STEPS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]; // cm, para reglas y escala gráfica
-  const LAYERS = { names: true, areas: true, dims: true, grid: true, items: true, electric: true, below: true, roof: false, notes: true };
+  const LAYERS = { names: true, areas: true, dims: true, tags: true, grid: true, items: true, electric: true, below: true, roof: false, notes: true };
   const NOTES = P.NOTE_KINDS; // herramientas de anotación: trazo, línea, flecha, formas, nube y nota de texto
+  /* Plantillas de vista (como las de Revit): qué capas se ven y en qué fase, de un toque. Ponen también
+     la plantilla de las láminas con el mismo nombre, para que la documentación salga igual. */
+  const VIEW_TEMPLATES = {
+    municipal: { layers: { names: true, areas: true, dims: true, tags: false, items: false, electric: false, notes: false, grid: false }, phaseView: "municipal" },
+    obra: { layers: { names: true, areas: true, dims: true, tags: true, items: false, electric: true, notes: true, grid: true }, phaseView: "obra" },
+    cliente: { layers: { names: true, areas: true, dims: false, tags: false, items: true, electric: false, notes: false, grid: false }, phaseView: "obra" }
+  };
   const OPTIONS = "ABCDEF";   // variantes del plano: "Opción A", "Opción B"…
   const COLOR_NAMES = { "": "Sin color", "#e5484d": "Rojo", "#f08c00": "Naranja", "#2fa84f": "Verde", "#12a5a5": "Turquesa", "#3b82f6": "Azul", "#9b59d0": "Violeta", "#a0785a": "Madera" };
   const HINTS = {
@@ -91,6 +98,7 @@
   function init(root) {
     const svg = $("[data-canvas]", root), hint = $("[data-hint]", root), inspector = $("[data-inspector]", root);
     const settings = $("[data-settings]", root), out = $("[data-result]", root), title = $("[data-title]", root);
+    const legend = $("[data-phase-legend]", root) || document.createElement("div"), phaseView = $("[data-phase-view]", root);
     const emptyNote = $("[data-empty-note]", root);
     const sketchBar = $("[data-sketch-bar]", root), checksOut = $("[data-checks]", root), checksCount = $("[data-checks-count]", root);
     const sectionBox = $("[data-section-box]", root), sectionOut = $("[data-section]", root);
@@ -102,7 +110,9 @@
     let plan = start();
     let tool = "select", pick = null, sel = null, chain = null, hover = null, ghost = null, typed = "", drag = null, model = null, text = "", measure = null, arcEnd = null, wireFrom = null, sketch = null;
     let spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
-    let nextType = ""; // ladrillo de los muros que se dibujen a continuación; vacío = el tipo por defecto
+    let nextType = ""; // tipo de muro (id) de los muros que se dibujen a continuación; vacío = el tipo por defecto de su clase
+    let editType = ""; // tipo de muro abierto en el panel "Tipos de muro"
+    let nextPhase = ""; // fase de los muros que se dibujen: vacío = a construir; "existente" para relevar lo que ya está
     let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
     let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
     let shelf = loadShelf(); // biblioteca personal de muebles
@@ -130,6 +140,7 @@
       saved.variants = (Array.isArray(saved.variants) ? saved.variants : []).filter(function (v) { return v && Array.isArray(v.levels) && v.levels.length; }).slice(0, OPTIONS.length)
         .map(function (v) { const levels = cleanLevels(v.levels); return { levels: levels, level: Math.min(v.level || 0, levels.length - 1), section: v.section || null }; });
       saved.variant = Math.min(saved.variant || 0, Math.max(0, saved.variants.length - 1));
+      P.migrateWalls(saved); // ladrillo por muro (planos viejos) → tipos de muro
       return saved;
     }
     // Biblioteca personal: solo entradas de un tipo conocido y con medidas.
@@ -284,6 +295,7 @@
       if (!selected()) sel = null;
       renderInspector();
       renderVariants();
+      renderTypes();
     }
 
     // ---------- Geometría de pantalla ----------
@@ -428,7 +440,7 @@
     }
 
     // ---------- Dibujo ----------
-    const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, model.wallThick[o.wall] || 12, k, cls);
+    const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, model.wallThick[o.wall] || (model.before && model.before.wallThick[o.wall]) || 12, k, cls);
 
     function rulersSVG(k) {
       const band = 18 * k, step = STEPS.find((s) => s / k >= 56) || STEPS[STEPS.length - 1], font = ' font-size="' + n1(9 * k) + '"';
@@ -477,16 +489,41 @@
         if (show.names) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 - font * 0.65, "room-label", (D.surfaces[sf.type] || D.surfaces.patio).label);
         if (show.areas) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 + font * 0.7, "room-area", E.fmt(sf.w * sf.h / 1e4, 1) + " m²");
       });
-      model.rooms.forEach(function (room) {
+      // Fases: "obra" = cómo queda (lo existente en gris), "actual" = antes de la obra, "municipal" = colores de plano municipal.
+      const pv = model.phased ? (plan.phaseView || "obra") : "obra", shown = pv === "actual" ? model.before : model;
+      const phaseOf = {};
+      plan.walls.forEach(function (w) { phaseOf[w.id] = P.wallPhase(w); });
+      const phaseCls = (ph) => !model.phased ? "" : ph === "demoler" ? " ph-demo" : ph === "existente" ? " ph-old" : pv === "municipal" ? " ph-new" : "";
+      const openingShown = (o) => {
+        const ph = P.openingPhase(o, wallById(o.wall));
+        return pv === "municipal" || (pv === "actual" ? ph !== "nueva" : ph !== "demoler");
+      };
+      legend.hidden = pv !== "municipal";
+      svg.setAttribute("data-phase", pv);
+      shown.rooms.forEach(function (room) {
         html += '<polygon class="room' + (room === active ? " sel" : "") + '"' + P.roomFill(room, room === active) + ' points="' + room.points.map((p) => n1(p.x) + "," + n1(p.y)).join(" ") + '"/>';
       });
       // La guía de la planta de abajo va sobre el relleno de los ambientes y debajo de los muros propios.
       if (show.below) model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
-      model.edges.forEach(function (e) {
-        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.thick);
+      // Cada muro en dos pasadas, como el nivel de detalle "fino" de Revit: primero el espesor terminado
+      // (revoques, en tono suave) y encima el núcleo de ladrillo.
+      shown.edges.forEach(function (e) {
+        if (e.thick - e.core > 0.5) html += P.lineSVG(e.a, e.b, "wall-fin", e.thick);
       });
+      shown.edges.forEach(function (e) {
+        const ph = pv === "actual" ? "existente" : phaseOf[e.wall];
+        html += P.lineSVG(e.a, e.b, "wall " + e.cls + (pv === "actual" ? "" : phaseCls(ph)) + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.core || e.thick);
+      });
+      if (pv === "municipal") { // lo que se demuele: en amarillo y a trazos, con el espesor que tiene hoy
+        plan.walls.forEach(function (w) {
+          if (phaseOf[w.id] !== "demoler") return;
+          html += P.lineSVG(w.a, w.b, "wall ph-demo" + (picked.indexOf(w.id) >= 0 ? " sel" : ""), (model.before && model.before.wallThick[w.id]) || 12, dash);
+        });
+      }
       plan.openings.forEach(function (o) {
-        html += openingSVG(o, k, sel && sel.type === "opening" && sel.id === o.id ? " sel" : "");
+        if (!openingShown(o)) return;
+        const ph = P.openingPhase(o, wallById(o.wall));
+        html += openingSVG(o, k, (pv === "actual" ? "" : phaseCls(ph)) + (sel && sel.type === "opening" && sel.id === o.id ? " sel" : ""));
       });
       plan.items.forEach(function (it) {
         if (show[itemLayer(it)]) html += P.itemSVG(it, k, sel && sel.type === "item" && sel.id === it.id ? " sel" : "");
@@ -500,15 +537,31 @@
       }
       if (ghost) html += '<g class="ghost">' + (ghost.wall ? openingSVG(ghost, k, " sel") : P.itemSVG(ghost, k, " sel")) + "</g>";
 
-      model.rooms.forEach(function (room) {
+      shown.rooms.forEach(function (room) {
         const both = show.names && show.areas;
         if (show.names) html += label(room.cx, room.cy - (both ? font * 0.65 : 0), "room-label", room.name);
         if (show.areas) html += label(room.cx, room.cy + (both ? font * 0.7 : 0), "room-area", E.fmt(room.area, 1) + " m²");
       });
+      // Etiquetas de carpintería (P1, V2…): las mismas que la planilla. Van sobre los muebles y, en un muro
+      // exterior, del lado de afuera, donde no tapan nada.
+      if (show.tags && brand.schedules && pv !== "actual") {
+        const codes = brand.schedules.build(plan).codeOf;
+        plan.openings.forEach(function (o) {
+          const w = wallById(o.wall), code = codes[o.id];
+          if (!w || !code) return;
+          const len = dist(w.a, w.b), c = P.at(w, o.t), off = (model.wallThick[o.wall] || 12) / 2 + 13 * k;
+          const nx = -(w.b.y - w.a.y) / len * off, ny = (w.b.x - w.a.x) / len * off;
+          const inRoom = (q) => shown.rooms.some((r) => P.inside(r.points, q));
+          const flip = inRoom({ x: c.x + nx, y: c.y + ny }) && !inRoom({ x: c.x - nx, y: c.y - ny }) ? -1 : 1;
+          const x = c.x + nx * flip, y = c.y + ny * flip, bw = (code.length * 7.4 + 8) * k, bh = 15 * k;
+          html += '<g class="tag"><rect x="' + n1(x - bw / 2) + '" y="' + n1(y - bh / 2) + '" width="' + n1(bw) + '" height="' + n1(bh) + '" rx="' + n1(3 * k) + '" stroke-width="' + n1(k) + '"/>' +
+            '<text x="' + n1(x) + '" y="' + n1(y + 4 * k) + '" font-size="' + n1(11 * k) + '" text-anchor="middle">' + code + "</text></g>";
+        });
+      }
       if (show.dims) {
         plan.walls.forEach(function (w) {
-          const len = dist(w.a, w.b);
-          if (len / k < 46) return;
+          const len = dist(w.a, w.b), ph = phaseOf[w.id];
+          if (len / k < 46 || (pv === "actual" ? ph === "nueva" : pv === "obra" && ph === "demoler")) return;
           const offset = (model.wallThick[w.id] || 12) / 2 + 11 * k;
           html += label((w.a.x + w.b.x) / 2 + (w.b.y - w.a.y) / len * offset, (w.a.y + w.b.y) / 2 - (w.b.x - w.a.x) / len * offset, "dim", E.fmt(len / 100, 2));
         });
@@ -635,16 +688,127 @@
         }).join("") +
         '<ul class="result-notes">' + model.notes.map((n) => "<li>" + escHTML(n) + "</li>").join("") + "</ul>" +
         '<div class="result-actions"><button type="button" class="btn" data-copy>Copiar cómputo</button>' +
+        '<button type="button" class="btn btn-ghost" data-action="schedules">Planillas</button>' +
+        '<button type="button" class="btn btn-ghost" data-action="budget">Presupuesto</button>' +
         '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(text) + '">Enviar por WhatsApp</a></div>';
     }
+
+    // ---------- Tipos de muro ----------
+    function defaultType(cls) {
+      const types = P.wallTypesOf(plan), lib = P.wallTypesOf({});
+      return types[(plan.settings || {})[cls]] || types[P.DEFAULTS[cls]] || lib[P.DEFAULTS[cls]];
+    }
+    const thickText = (t) => E.fmt(P.typeThick(t, "ext"), 1) + " cm como exterior · " + E.fmt(P.typeThick(t, "int"), 1) + " cm como interior";
+    // Todos los muros del plano: plantas y opciones de diseño, con la planta activa tomada de los campos de trabajo.
+    function everyWall() {
+      const list = plan.walls.slice();
+      (plan.levels || []).forEach(function (lv, i) { if (i !== (plan.level || 0)) list.push.apply(list, lv.walls || []); });
+      (plan.variants || []).forEach(function (v, i) {
+        if (i === (plan.variant || 0)) return;
+        (v.levels || []).forEach(function (lv) { list.push.apply(list, lv.walls || []); });
+      });
+      return list;
+    }
+    function ensureTypes() { if (!Array.isArray(plan.wallTypes) || !plan.wallTypes.length) plan.wallTypes = P.wallTypeList(plan); }
+
+    const LAYER_COLORS = { azotado: "#4f9bd9", grueso: "#8d8d8d", fino: "#d9d9d9" };
+    // Corte del muro, capa por capa y a escala: de la cara exterior (izquierda) a la interior.
+    function layerSVG(t) {
+      const parts = [];
+      const face = (f, outer) => {
+        const list = [["azotado", f.azotado], ["grueso", f.grueso], ["fino", f.fino ? D.finishes.fineThick : 0]].filter((l) => l[1] > 0);
+        return outer ? list.slice().reverse() : list;
+      };
+      face(t.ext, true).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
+      parts.push({ cls: "core", w: D.bricks[t.brick].e });
+      face(t.int, false).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
+      const total = parts.reduce((s, p) => s + p.w, 0), W = 260, k = W / total;
+      let x = 0;
+      const rects = parts.map(function (p) {
+        const r = '<rect x="' + (x * k).toFixed(1) + '" y="0" width="' + Math.max(1, p.w * k).toFixed(1) + '" height="34" fill="' +
+          (p.cls === "core" ? "url(#brick-hatch)" : LAYER_COLORS[p.cls]) + '"/>';
+        x += p.w;
+        return r;
+      }).join("");
+      return '<svg class="type-svg" viewBox="0 0 260 46" role="img" aria-label="Capas del muro, de afuera hacia adentro">' +
+        '<defs><pattern id="brick-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#5a3b2e"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c2785a" stroke-width="2"/></pattern></defs>' +
+        rects + '<text x="0" y="45">Afuera</text><text x="260" y="45" text-anchor="end">Ambiente</text></svg>';
+    }
+    function renderTypes() {
+      // Los tipos de muro por defecto de los Ajustes de obra se eligen entre los tipos de este plano.
+      ["ext", "int"].forEach(function (cls) {
+        const el = settings.elements[cls];
+        if (!el) return;
+        el.innerHTML = P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '">' + escHTML(t.name) + "</option>").join("");
+        el.value = defaultType(cls).id;
+      });
+      const box = $("[data-types]", root);
+      if (!box) return;
+      const list = P.wallTypeList(plan);
+      if (!list.some((t) => t.id === editType)) editType = list[0].id;
+      const t = list.find((x) => x.id === editType), used = everyWall().filter((w) => w.type === t.id).length;
+      const isDefault = ["ext", "int"].filter((c) => defaultType(c).id === t.id);
+      const num = (face, layer, labelText) => "<label>" + labelText + ' (cm) <input type="text" inputmode="decimal" autocomplete="off" data-layer-cm="' + face + "." + layer +
+        '" value="' + E.fmt(t[face][layer], 1) + '"></label>';
+      const fine = (face) => '<label class="type-check"><input type="checkbox" data-layer-fino="' + face + '"' + (t[face].fino ? " checked" : "") + "> Revoque fino</label>";
+      const faceBox = (face, title) => '<fieldset class="type-face"><legend>' + title + "</legend>" + num(face, "azotado", "Azotado") +
+        num(face, "grueso", "Grueso") + fine(face) + "</fieldset>";
+      box.innerHTML =
+        '<div class="type-pick"><select data-type-pick aria-label="Tipo de muro">' + list.map((x) => '<option value="' + escHTML(x.id) + '"' + (x.id === t.id ? " selected" : "") + ">" +
+          escHTML(x.name) + "</option>").join("") + "</select>" +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="type-new">Duplicar</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="type-delete"' + (isDefault.length ? " disabled" : "") + ">Borrar</button></div>" +
+        layerSVG(t) +
+        '<p class="type-sum">' + thickText(t) + "<br>" + (used ? "Lo usan " + used + (used === 1 ? " muro" : " muros") : "Ningún muro lo usa directamente") +
+        (isDefault.length ? " · es el tipo por defecto de los muros " + isDefault.map((c) => c === "ext" ? "exteriores" : "interiores").join(" e ") : "") + ".</p>" +
+        '<div class="type-form"><label>Nombre <input type="text" maxlength="60" autocomplete="off" data-type-name value="' + escHTML(t.name) + '"></label>' +
+        '<label>Ladrillo <select data-type-brick>' + Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === t.brick ? " selected" : "") + ">" +
+          escHTML(D.bricks[key].label) + "</option>").join("") + "</select></label>" +
+        faceBox("ext", "Cara exterior") + faceBox("int", "Cara hacia un ambiente") + "</div>" +
+        '<p class="ws-tip">Los cambios valen para todos los muros de este tipo, en todas las plantas y opciones. La cara exterior se usa del lado de afuera de los muros exteriores.</p>';
+    }
+    // Cambia una propiedad del tipo abierto y vuelve a calcular todo.
+    function editTypeWith(fn) {
+      pushHistory();
+      ensureTypes();
+      const t = plan.wallTypes.find((x) => x.id === editType);
+      if (!t) return;
+      fn(t);
+      Object.assign(t, P.cleanType(t));
+      save();
+      render();
+      renderTypes();
+    }
+    function typeInput(e) {
+      const el = e.target;
+      if (el.matches("[data-type-pick]")) { editType = el.value; renderTypes(); return; }
+      if (e.type !== "change") return; // nombre y espesores se toman al confirmar, para no rehacer el panel mientras se tipea
+      if (el.matches("[data-type-name]")) {
+        const name = el.value.trim();
+        if (!name) return;
+        editTypeWith((t) => { t.name = name; });
+        return;
+      }
+      if (el.matches("[data-type-brick]")) { editTypeWith((t) => { t.brick = el.value; }); return; }
+      if (el.matches("[data-layer-fino]")) { const face = el.getAttribute("data-layer-fino"); editTypeWith((t) => { t[face].fino = el.checked; }); return; }
+      if (el.matches("[data-layer-cm]")) {
+        const parts = el.getAttribute("data-layer-cm").split("."), v = el.value.trim() === "" ? 0 : E.parseNum(el.value);
+        if (!(v >= 0 && v <= 5)) { el.setAttribute("aria-invalid", "true"); return; }
+        editTypeWith((t) => { t[parts[0]][parts[1]] = v; });
+      }
+    }
+
+    const PHASE_OPTIONS = [["", "A construir"], ["existente", "Existente"], ["demoler", "Existente a demoler"]];
+    const phaseSelect = (current, mixed) => '<label>Fase <select name="phase">' + (mixed ? '<option value="mixed" selected disabled>Varias</option>' : "") +
+      PHASE_OPTIONS.map((o) => '<option value="' + o[0] + '"' + (!mixed && (current || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
 
     function renderInspector() {
       const item = selected();
       const field = (name, labelText, value) => "<label>" + labelText + ' <input name="' + name + '" type="text" inputmode="decimal" autocomplete="off" value="' +
         E.fmt(value, 2) + '"> m</label>';
       const button = (action, labelText) => '<button type="button" class="btn btn-ghost" data-action="' + action + '">' + labelText + "</button>";
-      const brickOptions = (current) => Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === current ? " selected" : "") + ">" +
-        escHTML(D.bricks[key].label) + "</option>").join("");
+      const typeOptions = (current) => P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '"' + (t.id === current ? " selected" : "") + ">" +
+        escHTML(t.name) + "</option>").join("");
       const swatches = (current, first) => '<span class="swatches" role="group" aria-label="Color">' + [""].concat(P.PALETTE).map((c) => '<button type="button" class="swatch" data-swatch="' + c +
         '" aria-pressed="' + ((current || "") === c) + '" title="' + (c ? COLOR_NAMES[c] : first) + '" aria-label="' + (c ? COLOR_NAMES[c] : first) + '"' + (c ? ' style="--sw:' + c + '"' : "") + "></button>").join("") + "</span>";
       const weight = (name, current, isText) => "<label>" + (isText ? "Tamaño" : "Grosor") + ' <select name="' + name + '">' + [["s", isText ? "Chico" : "Fino"], ["m", "Medio"], ["l", isText ? "Grande" : "Grueso"]]
@@ -657,8 +821,11 @@
       }
       if (!item) { // dibujando: se elige el ladrillo de los muros que vienen
         if (drawing) {
-          inspector.innerHTML = '<strong>Muros nuevos</strong><label>Ladrillo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + brickOptions(nextType) +
-            "</select></label><span>" + (nextType ? E.fmt(D.bricks[nextType].e, 1) + " cm de espesor" : "se define en Ajustes de obra") + "</span>";
+          const t = P.wallTypesOf(plan)[nextType];
+          inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(nextType) +
+            "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>" +
+            '<label>Fase <select name="nextPhase"><option value="">A construir</option><option value="existente"' + (nextPhase === "existente" ? " selected" : "") +
+            ">Existente (relevamiento)</option></select></label>";
         }
         return;
       }
@@ -670,22 +837,28 @@
       }
       if (sel.type === "walls") {
         const types = Object.keys(item.reduce((set, w) => { set[w.type || ""] = true; return set; }, {})), mixed = types.length > 1;
-        inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Ladrillo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
-          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + brickOptions(mixed ? null : types[0]) + "</select></label><span>" +
+        inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Tipo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
+          '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label>" +
+          phaseSelect(item[0].phase, item.some((w) => (w.phase || "") !== (item[0].phase || ""))) + "<span>" +
           E.fmt(item.reduce((sum, w) => sum + dist(w.a, w.b), 0) / 100, 2) + " m en total</span>" + button("delete", "Borrar");
         return;
       }
       if (sel.type === "wall") {
-        // Clase (exterior o interior) detectada sola, y ladrillo que le tocaría por defecto.
+        // Clase (exterior o interior) detectada sola, y tipo que le tocaría por defecto.
         const edge = model.edges.find((e) => e.wall === item.id) || { cls: "ext" }, outside = edge.cls !== "int";
-        const usual = D.bricks[(plan.settings || {})[edge.cls]] || D.bricks[P.DEFAULTS[edge.cls]], brick = D.bricks[item.type] || usual;
+        const types = P.wallTypesOf(plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
         inspector.innerHTML = "<strong>" + (outside ? "Muro exterior" : "Muro interior") + "</strong>" + field("length", "Largo", dist(item.a, item.b) / 100) +
-          '<label>Ladrillo <select name="type"><option value="">Por defecto: ' + escHTML(usual.label) + "</option>" + Object.keys(D.bricks).map((key) => '<option value="' + key + '"' +
-            (key === item.type ? " selected" : "") + ">" + escHTML(D.bricks[key].label) + "</option>").join("") + "</select></label><span>" + E.fmt(brick.e, 1) + " cm de espesor</span>" +
+          '<label>Tipo <select name="type"><option value="">Por defecto: ' + escHTML(usual.name) + "</option>" + typeOptions(item.type) + "</select></label>" +
+          "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" + phaseSelect(item.phase) +
+          '<button type="button" class="btn btn-ghost" data-action="type-edit" data-type="' + escHTML(t.id) + '">Editar el tipo</button>' +
           button("split", "Dividir en dos") + button("delete", "Borrar");
       } else if (sel.type === "opening") {
-        const def = P.typeOf(item);
-        inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) +
+        const def = P.typeOf(item), host = wallById(item.wall), hostPhase = host ? P.wallPhase(host) : "nueva";
+        // En un muro existente la abertura puede quedar, retirarse o ser un vano nuevo; en un muro nuevo siempre es nueva.
+        const phaseBox = hostPhase === "existente" ? '<label>Fase <select name="phase">' + [["", "Existente, como su muro"], ["nueva", "Vano nuevo (a construir)"], ["demoler", "A retirar"]]
+          .map((o) => '<option value="' + o[0] + '"' + ((item.phase === "existente" ? "" : item.phase || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>"
+          : hostPhase === "demoler" ? "<span>Se retira con su muro</span>" : "";
+        inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) + phaseBox +
           (/swing|double|garage/.test(def.symbol) ? button("flip-side", "Cambiar lado") : "") +
           (def.symbol === "swing" ? button("flip-hinge", "Cambiar bisagra") : "") + button("duplicate", "Duplicar") + button("delete", "Borrar");
       } else if (sel.type === "surface") {
@@ -738,7 +911,7 @@
       const fresh = list.filter((s) => dist(s[0], s[1]) >= GRID && !plan.walls.some((w) => onWall(w, s[0]) && onWall(w, s[1])));
       if (!fresh.length) return;
       pushHistory();
-      fresh.forEach(function (s) { plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, nextType ? { type: nextType } : {})); });
+      fresh.forEach(function (s) { plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, nextType ? { type: nextType } : {}, nextPhase ? { phase: nextPhase } : {})); });
     }
     function addWallPoint(p) {
       typed = "";
@@ -943,6 +1116,40 @@
       },
       "export-json": function () { download(fileName("json"), new Blob([JSON.stringify(Object.assign({ app: "calcuobra", version: 1 }, JSON.parse(snapshot())), null, 1)], { type: "application/json" })); },
       "open-file": function () { $('[data-file="plan"]', root).click(); },
+      "type-edit": function (el) { // del inspector del muro al panel de tipos, con su tipo abierto
+        editType = el.getAttribute("data-type") || "";
+        const box = $("[data-types-box]", root);
+        box.open = true;
+        renderTypes();
+        box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        const pick = $("[data-type-pick]", root);
+        if (pick) pick.focus({ preventScroll: true });
+      },
+      "type-new": function () { // duplica el tipo abierto: así se arma uno nuevo sin empezar de cero
+        pushHistory();
+        ensureTypes();
+        const from = plan.wallTypes.find((x) => x.id === editType) || plan.wallTypes[0];
+        const copyType = JSON.parse(JSON.stringify(from));
+        copyType.id = "t-" + nextId();
+        copyType.name = ("Copia de " + from.name).slice(0, 60);
+        plan.wallTypes.push(copyType);
+        editType = copyType.id;
+        save(); render(); renderTypes();
+        const name = $("[data-type-name]", root);
+        if (name) { name.focus(); name.select(); }
+      },
+      "type-delete": function () { // los muros que lo usaban vuelven al tipo por defecto de su clase
+        ensureTypes();
+        if (plan.wallTypes.length < 2 || ["ext", "int"].some((c) => defaultType(c).id === editType)) return;
+        const used = everyWall().filter((w) => w.type === editType);
+        if (used.length && !window.confirm("Lo usan " + used.length + (used.length === 1 ? " muro, que pasa" : " muros, que pasan") + " al tipo por defecto. ¿Borrar el tipo?")) return;
+        pushHistory();
+        used.forEach((w) => { delete w.type; });
+        plan.wallTypes = plan.wallTypes.filter((x) => x.id !== editType);
+        if (nextType === editType) nextType = "";
+        editType = "";
+        save(); render(); renderTypes(); renderInspector();
+      },
       "ref-load": function () { $('[data-file="ref"]', root).click(); },
       "sketch-load": function () { $('[data-file="sketch"]', root).click(); },
       "sketch-cancel": function () { sketch = null; syncSketch(); fit(); render(); },
@@ -1048,6 +1255,148 @@
       "zoom-in": function () { zoomAt(center(), 1 / 1.25); },
       "zoom-out": function () { zoomAt(center(), 1.25); },
       print: function () { window.print(); },
+      // Planillas de carpinterías y locales: se leen del plano y lo que se edita en la tabla vuelve al plano.
+      schedules: function () {
+        const S = brand.schedules, U = brand.panel;
+        if (!S || !U) return;
+        if (!P.levelsOf(plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para armar las planillas."; return; }
+        const esc = U.esc, levelData = (li) => (li === (plan.level || 0) ? plan : plan.levels[li]);
+        let t = null;
+        const input = (key, value, attrs) => '<input type="text" inputmode="decimal" autocomplete="off" data-key="' + key + '" value="' + esc(value) + '"' + attrs + ">";
+        function table(cols, body) {
+          return '<div class="sp-scroll"><table class="sp-table"><thead><tr>' + cols.map((c) => "<th>" + esc(c) + "</th>").join("") + "</tr></thead><tbody>" + body + "</tbody></table></div>";
+        }
+        function render(tab) {
+          t = S.build(plan);
+          const phased = P.hasPhases(plan);
+          if (tab === "rooms") {
+            const head = S.roomTable(t, phased).cols;
+            const body = t.rooms.map((r, i) => {
+              const cells = S.roomTable(t, phased).rows[i];
+              cells[1] = '<input type="text" autocomplete="off" maxlength="40" data-key="r-name-' + i + '" data-room="' + i + '" data-field="name" value="' + esc(r.name) + '" aria-label="Nombre de ' + esc(r.code) + '">';
+              cells[4] = '<select data-key="r-floor-' + i + '" data-room="' + i + '" data-field="floor" aria-label="Piso de ' + esc(r.code) + '">' + Object.keys(D.floors).map((k) => '<option value="' + k + '"' + (k === r.floor ? " selected" : "") + ">" + esc(D.floors[k].label) + "</option>").join("") + "</select>";
+              return "<tr>" + cells.map((c, j) => "<td" + (j === 2 || j === 3 || j === 5 || j === 6 ? ' class="num"' : "") + ">" + (j === 1 || j === 4 ? c : esc(c)) + "</td>").join("") + "</tr>";
+            }).join("");
+            const total = t.rooms.reduce((a, r) => a + r.area, 0);
+            return '<p class="sp-sum">' + t.rooms.length + " locales · " + E.fmt(total, 2) + " m² de superficie útil. El nombre y el piso se cambian acá mismo y pasan al plano.</p>" + table(head, body);
+          }
+          const head = S.openingTable(t, phased).cols;
+          const body = t.openings.map((g, i) => {
+            const cells = S.openingTable(t, phased).rows[i];
+            cells[2] = input("o-w-" + g.code, E.fmt(g.w / 100, 2), ' data-open="' + i + '" data-field="w" aria-label="Ancho de ' + g.code + ' en metros"');
+            cells[3] = input("o-h-" + g.code, E.fmt(g.h / 100, 2), ' data-open="' + i + '" data-field="h" aria-label="Alto de ' + g.code + ' en metros"');
+            return "<tr>" + cells.map((c, j) => "<td" + (j >= 2 && j <= 5 ? ' class="num"' : "") + ">" + (j === 0 ? '<span class="sp-code">' + esc(c) + "</span>" : j === 2 || j === 3 ? c : esc(c)) + "</td>").join("") + "</tr>";
+          }).join("");
+          const n = t.openings.reduce((a, g) => a + g.count, 0);
+          return '<p class="sp-sum">' + t.openings.length + " códigos · " + n + " aberturas. Las aberturas iguales comparten código: si cambiás el ancho o el alto de un código, cambian todas.</p>" +
+            (t.openings.length ? table(head, body) : '<p class="ws-tip">Todavía no hay puertas ni ventanas en el plano.</p>');
+        }
+        function change(e) {
+          const el = e.target, field = el.getAttribute("data-field");
+          if (!field || !t) return;
+          if (el.hasAttribute("data-open")) {
+            const g = t.openings[+el.getAttribute("data-open")], v = E.parseNum(el.value);
+            if (!(v >= 0.3 && v <= (field === "w" ? 6 : 3.5))) { el.setAttribute("aria-invalid", "true"); return; }
+            pushHistory();
+            P.levelsOf(plan, "todo").forEach(function (lv, li) {
+              (levelData(li).openings || []).forEach(function (o) { if (g.ids.indexOf(o.id) >= 0) o[field] = Math.round(v * 100); });
+            });
+          } else if (el.hasAttribute("data-room")) {
+            const r = t.rooms[+el.getAttribute("data-room")], data = levelData(r.level);
+            if (field === "name" && !el.value.trim()) return;
+            pushHistory();
+            data.labels = data.labels || [];
+            let tag = data.labels.find((l) => P.inside(r.points, l));
+            if (!tag) { tag = { x: Math.round(r.cx), y: Math.round(r.cy), name: r.name, floor: r.floor }; data.labels.push(tag); }
+            tag[field] = field === "name" ? el.value.trim().slice(0, 40) : el.value;
+          } else return;
+          commit(sel);
+          panel.refresh();
+        }
+        const panel = U.open({
+          title: "Planillas", tabs: [{ id: "openings", label: "Carpinterías" }, { id: "rooms", label: "Locales" }],
+          actions: [{ id: "csv", label: "Descargar para Excel" }, { id: "print", label: "Imprimir", ghost: true }],
+          render: render, change: change,
+          action: function (id, tab) {
+            if (id === "print") { window.print(); return; }
+            const phased = P.hasPhases(plan), data = tab === "rooms" ? S.roomTable(S.build(plan), phased) : S.openingTable(S.build(plan), phased);
+            download(fileName("csv").replace(/\.csv$/, tab === "rooms" ? "-locales.csv" : "-carpinterias.csv"), new Blob([S.csv(data)], { type: "text/csv;charset=utf-8" }));
+          }
+        });
+      },
+      // Presupuesto de obra: cantidades del cómputo × precios. Los precios de materiales y jornales se comparten con
+      // las calculadoras (quedan en este navegador); los de aberturas y artefactos son propios de cada plano.
+      budget: function () {
+        const BG = brand.budget, U = brand.panel, K = brand.costs;
+        if (!BG || !U || !K) return;
+        if (!P.levelsOf(plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para presupuestar."; return; }
+        const esc = U.esc, PRICE_KEY = "calcuobra.precios.v1", money = K.money;
+        const loadPrices = () => { try { return K.clean(JSON.parse(localStorage.getItem(PRICE_KEY) || "{}")); } catch (e) { return {}; } };
+        const savePrices = (p) => { try { if (Object.keys(p).length) localStorage.setItem(PRICE_KEY, JSON.stringify(p)); else localStorage.removeItem(PRICE_KEY); } catch (e) { /* sin almacenamiento */ } };
+        let prices = loadPrices(), b = null;
+        const qty = (l) => E.fmt(l.qty, l.unit === "unidad" || l.unit === "placa" || /^rollo/.test(l.unit) ? 0 : 2);
+        function render() {
+          b = BG.build(plan, prices);
+          const stat = (label, value, cls) => '<div class="bg-stat' + (cls ? " " + cls : "") + '"><span>' + esc(label) + "</span><strong>" + esc(value) + "</strong></div>";
+          const pct = (k, label) => '<label>' + label + ' <input type="text" inputmode="decimal" data-key="pase-' + k + '" data-pase="' + k + '" value="' + E.fmt(b.pase[k], 1) + '"> %</label>';
+          let html = '<div class="bg-top">' + stat("Precio final", money(b.total), "is-main") + stat("Costo directo", money(b.direct)) + stat("Materiales", money(b.mat)) + stat("Mano de obra", money(b.mo)) +
+            (b.area ? stat("Por m² nuevo", money(b.total / b.area)) : "") + "</div>" +
+            '<div class="bg-pase">' + pct("gg", "Gastos generales") + pct("ben", "Beneficio") + pct("iva", "IVA") + "</div>" +
+            '<p class="sp-sum">Precios de referencia de ' + esc(b.date) + ". Cambiá cualquier precio en su casillero: los de materiales y mano de obra quedan guardados en este dispositivo y valen también en las calculadoras; los de aberturas y artefactos, en este plano." +
+            (b.phased ? " Obra con partes existentes: se presupuesta solo lo nuevo y la demolición." : "") + "</p>" +
+            (b.missing.length ? '<p class="cost-missing">Falta el precio de ' + b.missing.length + (b.missing.length === 1 ? " ítem" : " ítems") + ": el total no los incluye. Están marcados en amarillo.</p>" : "");
+          b.rubros.forEach(function (r, ri) {
+            html += '<section class="bg-rubro"><h3><span>' + esc(r.title) + "</span><b>" + money(r.total) + "</b></h3>" + (r.note ? '<p class="ws-tip">' + esc(r.note) + "</p>" : "") +
+              '<div class="sp-scroll"><table class="sp-table bg-table"><thead><tr><th>Ítem</th><th class="num">Cantidad</th><th class="bg-unit">Unidad</th><th class="num">Precio unitario</th><th class="num">Subtotal</th></tr></thead><tbody>' +
+              r.lines.map(function (l, li) {
+                return '<tr' + (l.price == null ? ' class="is-missing"' : "") + "><td>" + esc(l.label) + '</td><td class="num">' + qty(l) + '<small class="bg-u"> ' + esc(l.unit) + '</small></td><td class="bg-unit">' + esc(l.unit) + '</td><td class="num">$ <input type="text" inputmode="decimal" autocomplete="off" data-key="p-' + ri + "-" + li +
+                  '" data-price="' + esc(l.key) + '" value="' + (l.price == null ? "" : E.fmt(l.price, 2)) + '" placeholder="Cargá el precio" aria-label="Precio de ' + esc(l.label) + " por " + esc(l.unit) + '"></td><td class="num">' +
+                  (l.subtotal == null ? "—" : money(l.subtotal)) + "</td></tr>";
+              }).join("") + '</tbody><tfoot><tr><td colspan="4" class="bg-foot">Materiales ' + money(r.mat) + " · Mano de obra " + money(r.mo) + '</td><td class="num">' + money(r.total) + "</td></tr></tfoot></table></div></section>";
+          });
+          html += '<dl class="result-rows bg-final">' + [["Costo directo", b.direct], ["Gastos generales " + E.fmt(b.pase.gg, 1) + " %", b.gg], ["Beneficio " + E.fmt(b.pase.ben, 1) + " %", b.ben],
+            ["Subtotal", b.net], ["IVA " + E.fmt(b.pase.iva, 1) + " %", b.iva], ["Precio final", b.total]].map((x) => "<div><dt>" + esc(x[0]) + "</dt><dd>" + money(x[1]) + "</dd></div>").join("") + "</dl>" +
+            '<ul class="result-notes"><li>Cantidades del cómputo del plano, con su desperdicio. Cemento y cal van en bolsas con decimales: al comprar, se redondea el total de la obra.</li>' +
+            "<li>No incluye estructura de hormigón armado, instalación sanitaria ni de gas, tirantería del techo, flete ni honorarios profesionales.</li>" +
+            "<li>Estimación para presupuestar: no reemplaza el presupuesto de un profesional.</li></ul>" +
+            '<button type="button" class="btn btn-ghost btn-sm" data-bg-reset' + (Object.keys(prices).length ? "" : " hidden") + ">Volver a los precios de referencia de materiales y mano de obra</button>";
+          return html;
+        }
+        function change(e) {
+          const el = e.target;
+          if (el.hasAttribute("data-pase")) {
+            const v = E.parseNum(el.value);
+            if (!(v >= 0 && v <= 100)) { el.setAttribute("aria-invalid", "true"); return; }
+            pushHistory();
+            plan.budget = Object.assign({}, plan.budget, { pase: Object.assign({}, BG.PASE, (plan.budget || {}).pase, { [el.getAttribute("data-pase")]: v }) });
+            save();
+          } else if (el.hasAttribute("data-price")) {
+            const key = el.getAttribute("data-price"), raw = el.value.trim().replace(/^\$\s*/, ""), v = raw === "" ? null : E.parseNum(raw);
+            if (v !== null && !(v >= 0)) { el.setAttribute("aria-invalid", "true"); return; }
+            if (key.indexOf("p:") === 0) {
+              pushHistory();
+              const own = Object.assign({}, (plan.budget || {}).prices);
+              if (v === null) delete own[key]; else own[key] = v;
+              plan.budget = Object.assign({}, plan.budget, { prices: own });
+              save();
+            } else {
+              if (v === K.priceOf(key, {})) delete prices[key]; else prices[key] = v;
+              savePrices(prices);
+            }
+          } else return;
+          panel.refresh();
+        }
+        const panel = U.open({
+          title: "Presupuesto de obra",
+          actions: [{ id: "csv", label: "Descargar para Excel" }, { id: "print", label: "Imprimir", ghost: true }],
+          render: render, change: change,
+          click: function (e) { if (e.target.closest("[data-bg-reset]")) { prices = {}; savePrices(prices); panel.refresh(); } },
+          action: function (id) {
+            if (id === "print") { window.print(); return; }
+            download(fileName("csv").replace(/\.csv$/, "-presupuesto.csv"), new Blob([BG.csv(BG.build(plan, prices))], { type: "text/csv;charset=utf-8" }));
+          }
+        });
+      },
       docs: function () {
         if (!brand.docs) return;
         brand.docs.open({ plan: function () { return plan; }, save: function (doc) { plan.doc = doc; save(); }, download: download, fileName: fileName });
@@ -1408,6 +1757,8 @@
         return;
       }
       if (mine) { const own = shelf.find((o) => o.id === mine.getAttribute("data-pick-shelf")); if (own) setTool("item", own.type, own); return; }
+      const tpl = e.target.closest("[data-view-tpl]");
+      if (tpl) { applyViewTemplate(tpl.getAttribute("data-view-tpl")); return; }
       const swatch = e.target.closest("[data-swatch]");
       if (swatch) { setColor(swatch.getAttribute("data-swatch")); return; }
       if (e.target.closest("[data-view]")) { showView(e.target.closest("[data-view]").getAttribute("data-view")); return; }
@@ -1415,7 +1766,7 @@
       else if (item) setTool("opening", item.getAttribute("data-pick"));
       else if (thing) setTool("item", thing.getAttribute("data-pick-item"));
       else if (a && actions[a.getAttribute("data-action")]) {
-        actions[a.getAttribute("data-action")]();
+        actions[a.getAttribute("data-action")](a);
         if (a.closest(".ws-menu")) a.closest(".ws-menu").removeAttribute("open");
       }
       else if (e.target.closest("[data-copy]")) {
@@ -1463,6 +1814,23 @@
     inspector.addEventListener("change", function (e) {
       // Sin nada seleccionado, el único campo posible es el ladrillo de los muros nuevos.
       if (e.target.name === "nextType") { nextType = e.target.value; renderInspector(); return; }
+      if (e.target.name === "nextPhase") { nextPhase = e.target.value; renderInspector(); return; }
+      if (e.target.name === "phase") {
+        pushHistory();
+        const v = e.target.value;
+        if (sel.type === "opening") {
+          const o = selected();
+          if (v) o.phase = v; else delete o.phase;
+        } else {
+          pickedWalls().map(wallById).forEach(function (w) {
+            // Un muro que pasa a existente conserva el tipo que tiene hoy, aunque después cambie la planta a su alrededor.
+            if (v && !w.type) { const edge = model.edges.find((x) => x.wall === w.id); if (edge) w.type = edge.wt; }
+            if (v) w.phase = v; else delete w.phase;
+          });
+        }
+        commit(sel);
+        return;
+      }
       if (e.target.name === "nextW") { nextNote.w = e.target.value; return; }
       if (!sel) return;
       if (sel.type === "room") { tagRoom(e.target.name, e.target.value.trim()); return; }
@@ -1519,12 +1887,16 @@
     const LIMITS = { height: [100, 2, 6], slab: [1, 0, 50], screed: [1, 0, 10], coats: [1, 1, 5] };
     function syncSettings() {
       const s = Object.assign({}, P.DEFAULTS, plan.settings), show = layers();
+      ["ext", "int"].forEach(function (cls) { s[cls] = defaultType(cls).id; });
+      renderTypes();
       $$("input, select", settings).forEach(function (el) {
         if (el.type === "checkbox") el.checked = !!s[el.name];
         else if (LIMITS[el.name]) el.value = E.fmt(s[el.name] / LIMITS[el.name][0], 2);
         else el.value = s[el.name];
       });
       $$("[data-layer]", root).forEach(function (el) { el.checked = show[el.getAttribute("data-layer")]; });
+      if (phaseView) phaseView.value = plan.phaseView || "obra";
+      syncTemplates();
       title.value = plan.name || UNTITLED;
       $("[data-level]", root).innerHTML = P.levelsOf(plan).map((level, i) => '<option value="' + i + '"' + (i === (plan.level || 0) ? " selected" : "") + ">" +
         escHTML(level.name) + "</option>").join("");
@@ -1553,6 +1925,24 @@
     settings.addEventListener("input", readSettings);
     settings.addEventListener("change", readSettings);
     settings.addEventListener("submit", function (e) { e.preventDefault(); });
+    if (phaseView) phaseView.addEventListener("change", function () { plan.phaseView = phaseView.value; delete plan.viewTemplate; save(); syncTemplates(); render(); });
+    function syncTemplates() {
+      $$("[data-view-tpl]", root).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view-tpl") === plan.viewTemplate)); });
+    }
+    function applyViewTemplate(key) {
+      const t = VIEW_TEMPLATES[key];
+      if (!t) return;
+      plan.layers = Object.assign(layers(), t.layers);
+      plan.phaseView = t.phaseView;
+      plan.viewTemplate = key;
+      if (brand.sheets) plan.doc = brand.sheets.applyTemplate(plan.doc || {}, key);
+      save();
+      syncSettings();
+      render();
+      if (!stage3d.hidden) showView("3d");
+    }
+    const typesBox = $("[data-types]", root);
+    if (typesBox) typesBox.addEventListener("change", typeInput);
     root.addEventListener("change", function (e) {
       const sketchField = e.target.getAttribute && e.target.getAttribute("data-sketch");
       if (sketchField && sketch) {
@@ -1567,7 +1957,9 @@
       const layer = e.target.getAttribute && e.target.getAttribute("data-layer");
       if (!layer) return;
       plan.layers = Object.assign(layers(), { [layer]: e.target.checked });
+      delete plan.viewTemplate; // tocó una capa a mano: la vista ya no es la de la plantilla
       save();
+      syncTemplates();
       render();
       if (!stage3d.hidden) showView("3d"); // el techo se muestra u oculta también en 3D
     });

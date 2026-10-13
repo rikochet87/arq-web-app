@@ -11,12 +11,16 @@
   // [clave, rótulo, tipo, opciones]. Tipos: text, num (número con coma), select, check.
   const GROUPS = [
     ["Lámina", [
+      ["template", "Plantilla", "select", [["", "Personalizada"]].concat(Object.keys(S.TEMPLATES).map((k) => [k, S.TEMPLATES[k].label])), true],
       ["format", "Formato", "select", [["A3", "A3 · 420 × 297 mm"], ["A2", "A2 · 594 × 420 mm"], ["A1", "A1 · 841 × 594 mm"], ["A0", "A0 · 1189 × 841 mm"]]],
       ["scale", "Escala", "select", [["50", "1:50"], ["100", "1:100"], ["200", "1:200"]]],
       ["facades", "Fachadas", "select", [["frente", "Solo el frente"], ["dos", "Frente y contrafrente"], ["cuatro", "Las cuatro"]], true],
       ["color", "Muros en color reglamentario (rojo: a construir; negro: existente; amarillo: a demoler)", "check"],
       ["furniture", "Dibujar los muebles", "check"],
-      ["electric", "Incluir la instalación eléctrica", "check"]
+      ["electric", "Incluir la instalación eléctrica", "check"],
+      ["balance", "Incluir el balance de superficies", "check"],
+      ["lighting", "Incluir la planilla de iluminación y ventilación", "check"],
+      ["schedules", "Incluir las planillas de carpinterías y de locales", "check"]
     ]],
     ["Obra", [
       ["obra", "Tipo de obra", "select", null, true],
@@ -89,9 +93,27 @@
       out.innerHTML = built.sheets.map((s) => '<div class="doc-sheet">' + s.svg + "</div>").join("");
       root.querySelectorAll('[data-doc="print"], [data-doc="svg"]').forEach((b) => { b.disabled = !built.sheets.length; });
     }
+    // Pone en el formulario los valores de doc (después de aplicar una plantilla).
+    function fill() {
+      form.querySelectorAll("[name]").forEach(function (el) {
+        const v = doc[el.name];
+        if (el.type === "checkbox") el.checked = !!v;
+        else if (el.tagName === "SELECT") el.value = String(v);
+      });
+    }
+    const CONTROLLED = Object.keys(S.TEMPLATES).reduce((set, k) => { Object.keys(S.TEMPLATES[k]).forEach((f) => { if (f !== "label") set[f] = true; }); return set; }, {});
     function read(e) {
       const el = e.target, key = el.name;
       if (!key) return;
+      if (key === "template") {
+        Object.assign(doc, S.applyTemplate(doc, el.value));
+        fill();
+        api.save(Object.assign({}, doc));
+        clearTimeout(timer);
+        timer = setTimeout(render, 150);
+        return;
+      }
+      if (CONTROLLED[key] && doc.template) { doc.template = ""; form.elements.template.value = ""; } // tocó a mano algo de la plantilla
       if (el.type === "checkbox") doc[key] = el.checked;
       else if (el.hasAttribute("data-num")) {
         const v = el.value.trim() ? E.parseNum(el.value) : 0, ok = isFinite(v) && (key === "north" || v >= 0);

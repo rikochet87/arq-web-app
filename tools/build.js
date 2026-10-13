@@ -182,7 +182,7 @@ const PAGES = [
       num("superficie", "Superficie", "m²", "30", { showIf: "modo=directo", hidden: true }),
       num("manos", "Manos", "", "2"),
       chk("techo", "Pintar también el cielorraso", false, { showIf: "modo=ambiente" }),
-      num("rendimiento", "Rendimiento", "m² por litro", "10", { hint: "Figura en el envase, por mano", wide: true })
+      num("rendimiento", "Rendimiento", "m² por litro", "8", { hint: "Por mano. En obra, 8 m²/L: 1 litro a dos manos cubre unos 4 m²", wide: true })
     ],
     steps: [
       "Medí el largo, el ancho y el alto del ambiente.",
@@ -195,20 +195,20 @@ const PAGES = [
       <p><strong>Litros = superficie × manos ÷ rendimiento</strong></p>
       <p>La superficie de las paredes es el perímetro del ambiente por la altura. En un cuarto de 4 × 3 m con 2,6 m de alto, el perímetro es 14 m y las paredes suman 36,4 m². A eso se le restan las aberturas: la calculadora descuenta 1,6 m² por puerta y 1,5 m² por ventana. Si pintás el cielorraso, se suma largo × ancho.</p>
       <h3>Qué rendimiento usar</h3>
-      <p>El rendimiento figura en el envase y está expresado por mano. Como referencia:</p>
+      <p>El rendimiento se expresa por mano. El que figura en el envase está medido en condiciones ideales; en obra rinde menos, así que la calculadora parte de 8 m² por litro y por mano. Dicho de otra forma: con 1 litro a dos manos se pintan unos 4 m², y 40 m² a dos manos llevan 10 litros. Como referencia:</p>
       <ul>
-        <li><strong>Látex interior:</strong> entre 10 y 12 m² por litro.</li>
-        <li><strong>Látex exterior o superficies rugosas:</strong> entre 6 y 8 m² por litro.</li>
+        <li><strong>Látex interior:</strong> unos 8 m² por litro en obra (el envase suele indicar entre 10 y 12).</li>
+        <li><strong>Látex exterior o superficies rugosas:</strong> entre 5 y 7 m² por litro.</li>
         <li><strong>Esmalte sintético:</strong> entre 10 y 14 m² por litro.</li>
       </ul>
       <p>Una pared nueva, porosa o con revoque grueso absorbe más pintura, y un cambio de color fuerte puede necesitar una tercera mano. En esos casos bajá el rendimiento o sumá una mano.</p>
       <h3>Fijador y enduido</h3>
       <p>La calculadora estima solo la pintura de terminación. En paredes nuevas o entizadas conviene dar antes una mano de fijador sellador, que se calcula igual: superficie dividido el rendimiento que indica su envase.</p>`,
     faqs: [
-      ["¿Cuántos m² rinde un litro de pintura?", "Un látex interior rinde entre 10 y 12 m² por litro y por mano sobre una pared lisa y sellada. En exteriores o superficies rugosas baja a 6 u 8 m² por litro."],
-      ["¿Cuánta pintura necesito para una habitación de 4 × 3?", "Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 10 m² por litro son cerca de 7 litros: alcanza con dos envases de 4 litros."],
+      ["¿Cuántos m² rinde un litro de pintura?", "En obra, un látex interior rinde unos 8 m² por litro y por mano: con 1 litro a dos manos se pintan cerca de 4 m². El envase suele indicar 10 a 12 m², pero eso es en condiciones ideales. En exteriores o superficies rugosas baja a 5 o 7 m² por litro."],
+      ["¿Cuánta pintura necesito para una habitación de 4 × 3?", "Con 2,6 m de alto, una puerta y una ventana, las paredes suman unos 33 m². A dos manos y 8 m² por litro son algo más de 8 litros: conviene una lata de 10 litros."],
       ["¿Cuántas manos de pintura hay que dar?", "Dos manos es lo habitual. Si cambiás de un color oscuro a uno claro, o la pared es nueva, puede hacer falta una tercera."],
-      ["¿Cuánto rinde una lata de 20 litros?", "A 10 m² por litro, una lata de 20 litros cubre 200 m² en una mano, o 100 m² a dos manos."],
+      ["¿Cuánto rinde una lata de 20 litros?", "A 8 m² por litro, una lata de 20 litros cubre unos 160 m² en una mano, o 80 m² a dos manos."],
       ["¿Tengo que descontar puertas y ventanas?", "Sí, salvo que sean muy pocas y prefieras tener un margen. La calculadora las descuenta automáticamente con medidas estándar."]
     ]
   },
@@ -351,12 +351,12 @@ const PAGES = [
 ];
 
 // ---------- Diseñador de planos ----------
-const BRICKS = Object.keys(DATA.bricks).map((k) => [k, DATA.bricks[k].label]);
+const WALL_TYPES = DATA.wallTypes.map((t) => [t.id, t.name]); // el diseñador los reemplaza por los tipos del plano abierto
 const PLANNER = {
   file: "disenador-de-planos.html",
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
   app: true,
-  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "view3d.js", "docs.js", "planner.js"],
+  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "lib/schedules.js", "lib/costs.js", "lib/budget.js", "view3d.js", "docs.js", "panel.js", "planner.js"],
   title: "Diseñador de planos con cómputo de materiales | CalcuObra",
   description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
@@ -367,8 +367,8 @@ const PLANNER = {
     sel("system", "Estructura", [["portante", "Muros portantes (CIRSOC 501-E)"], ["independiente", "Independiente de hormigón armado (CIRSOC 201)"]], { value: "portante", wide: true }),
     sel("zone", "Zona sísmica", [["0", "0 — muy reducida"], ["1", "1 — reducida"], ["2", "2 — moderada"], ["3", "3 — elevada"], ["4", "4 — muy elevada"]], { value: "0" }),
     sel("mortar", "Mortero de asiento", mixes("mE", "mI", "mN").map(([k, text]) => [k, text.split(",")[0]]), { value: "mI" }),
-    sel("ext", "Muros exteriores, por defecto", BRICKS, { value: "portante18", wide: true }),
-    sel("int", "Muros interiores, por defecto", BRICKS, { value: "hueco8", wide: true }),
+    sel("ext", "Muros exteriores, por defecto", WALL_TYPES, { value: "ext-portante18", wide: true }),
+    sel("int", "Muros interiores, por defecto", WALL_TYPES, { value: "int-hueco8", wide: true }),
     sel("roof", "Cubierta", Object.keys(DATA.roofs).map((k) => [k, DATA.roofs[k].label]), { value: "chapa", wide: true }),
     num("slab", "Contrapiso", "cm", "10"),
     num("screed", "Carpeta", "cm", "2"),
@@ -383,7 +383,8 @@ const PLANNER = {
       <h2>Cómo se arma el cómputo a partir del plano</h2>
       <p>El diseñador mide lo que dibujás y aplica las mismas fórmulas que las calculadoras del sitio, pero para toda la vivienda de una vez.</p>
       <ul>
-        <li><strong>Muros:</strong> toma el largo de cada pared por la altura y le descuenta puertas y ventanas. Un muro que tiene ambientes de los dos lados se cuenta como interior; el resto, como exterior. Cada clase tiene un ladrillo por defecto, y a cualquier muro le podés elegir uno distinto tocándolo. Con esa superficie calcula los ladrillos de cada tipo y el mortero de asiento.</li>
+        <li><strong>Muros:</strong> toma el largo de cada pared por la altura y le descuenta puertas y ventanas. Un muro que tiene ambientes de los dos lados se cuenta como interior; el resto, como exterior. Cada clase tiene un tipo de muro por defecto, y a cualquier muro le podés elegir otro tocándolo. Con esa superficie calcula los ladrillos de cada tipo y el mortero de asiento.</li>
+        <li><strong>Tipos de muro:</strong> como en los programas BIM, cada tipo es un ladrillo más las capas de revoque de cada cara (azotado hidrófugo, grueso y fino). El plano dibuja el espesor terminado y los revoques salen capa por capa. Si cambiás un tipo, cambian todos los muros que lo usan.</li>
         <li><strong>Ambientes:</strong> cada espacio cerrado por paredes es un ambiente. Su superficie útil se mide entre ejes de muro y se le descuenta el espesor de las paredes.</li>
         <li><strong>Revoques:</strong> grueso a la cal y fino en bolsa sobre las caras interiores; al exterior se suma el azotado hidrófugo.</li>
         <li><strong>Contrapiso, carpeta y pisos:</strong> se calculan sobre la superficie útil. A cada ambiente le podés elegir el piso: cerámico, porcelanato, flotante o cemento alisado, con su adhesivo y sus zócalos.</li>
@@ -409,7 +410,11 @@ const PLANNER = {
       <p>El plano se guarda solo en tu navegador, en este dispositivo. No se sube a ningún servidor y no hace falta crear una cuenta. Si borrás los datos del navegador o cambiás de dispositivo, el plano no va a estar.</p>`,
   faqs: [
     ["¿Cómo dibujo una pared con una medida exacta?", "Mientras la dibujás, escribí el largo en metros y apretá Enter. También podés tocarla después con Seleccionar y cambiarle el largo."],
-    ["¿Puedo usar un ladrillo distinto en cada muro?", "Sí, de tres maneras. Antes de dibujar, elegís el ladrillo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de ladrillo a mitad de camino, lo dividís en dos."],
+    ["¿Puedo usar un muro distinto en cada pared?", "Sí, de tres maneras. Antes de dibujar, elegís el tipo de los muros nuevos. Después, tocás un muro y le cambiás el suyo. Y arrastrando un recuadro elegís varios muros a la vez (o todos con Ctrl+A) y les ponés el mismo. En el celular o la tablet, activá Elegir varios y tocá los muros uno por uno. Los que no toques usan el tipo por defecto de los ajustes. Si un muro largo cambia de tipo a mitad de camino, lo dividís en dos."],
+    ["¿Sirve para una ampliación o una refacción?", "Sí. Tocá cada muro o abertura que ya existe y elegí su fase: existente o existente a demoler (o dibujá lo existente con la fase Existente elegida antes de empezar). Lo nuevo se dibuja como siempre. El cómputo cuenta solo lo que se construye y suma la demolición con el escombro y los contenedores. En Capas › Fases podés ver el plano como queda, como está hoy o con los colores del plano municipal: existente, a demoler en amarillo y a construir en rojo."],
+    ["¿Arma la planilla de carpinterías y el presupuesto?", "Sí. Planillas muestra las carpinterías con su código (P1, V1…, también marcados en el plano) y los locales con superficie, piso, zócalo y paredes; se editan en la tabla y se descargan para Excel. Presupuesto toma las cantidades del cómputo y les pone precio a materiales y mano de obra, con gastos generales, beneficio e IVA. Los precios se pueden cambiar uno por uno."],
+    ["¿Qué son las plantillas de vista?", "Son configuraciones de un toque, como en los programas BIM. Municipal muestra las fases con sus colores y arma las láminas con balance de superficies e iluminación. Obra muestra cotas, códigos de carpintería y electricidad, y suma a las láminas las planillas de carpinterías y locales. Cliente deja el plano limpio, con muebles y sin cotas. Después podés ajustar cualquier capa a mano."],
+    ["¿Qué es un tipo de muro?", "Es la receta de un muro: qué ladrillo lleva y qué revoques tiene de cada lado. Vienen armados los más comunes (bloque portante de 18, ladrillo común de 30 revocado o visto, hueco de 8 para tabiques) y en el panel Tipos de muro podés duplicarlos y cambiarles el ladrillo o el espesor del azotado y del grueso. Al editar un tipo cambian todos los muros que lo usan, en todas las plantas."],
     ["¿Qué puertas y ventanas trae la biblioteca?", "Puertas de 70, 80 y 90 cm, doble, corrediza, puerta balcón, portón de garage y vano sin puerta; ventanas de 100 a 180 cm, ventiluz y paño fijo. A cada una le podés cambiar el ancho y el alto."],
     ["¿Qué materiales calcula el diseñador?", "Ladrillos y mortero, revoques, contrapiso, carpeta, pisos con adhesivo y zócalos, cielorraso, cubierta y pintura interior, con el total de cemento, cal, arena y cascote. También lista aberturas, artefactos y bocas eléctricas."],
 ["¿Verifica el plano con los reglamentos CIRSOC?", "Sí. Revisa los muros contra el CIRSOC 501-E (mampostería de hasta tres pisos en zona sísmica 0): ladrillo portante, espesores, alturas, distancia entre soportes, longitud de muros por dirección y aberturas. Usa las cargas del CIRSOC 101 y cita el artículo de cada control. No reemplaza al profesional."],
@@ -504,6 +509,8 @@ function plannerPage() {
     '          <summary class="btn btn-sm">' + icon(UI.export) + "<span>Exportar</span></summary>",
     '          <div class="ws-menu-list">',
     '            <button type="button" data-action="docs">Documentación de obra (láminas)</button>',
+    '            <button type="button" data-action="schedules">Planillas de carpinterías y locales</button>',
+    '            <button type="button" data-action="budget">Presupuesto de obra</button>',
     '            <button type="button" data-action="print">Imprimir o guardar PDF</button>',
     '            <button type="button" data-action="export-png">Imagen PNG</button>',
     '            <button type="button" data-action="export-svg">Dibujo vectorial SVG</button>',
@@ -596,6 +603,7 @@ function plannerPage() {
     '            <button type="button" data-action="fit" title="Encuadrar el plano">' + icon(UI.fit) + "</button>",
     '            <button type="button" class="ws-present-exit" data-action="present-exit" title="Salir de la presentación (Esc)">' + icon(UI.exit) + "<span>Salir</span></button>",
     "          </div>",
+    '          <div class="phase-legend" data-phase-legend hidden><span class="ph-old">Existente</span><span class="ph-demo">A demoler</span><span class="ph-new">A construir</span></div>',
     '          <div class="ws-status"><span data-coords>X · Y ·</span><span>imán 0,10 m</span><span class="ws-scale" data-scale></span></div>',
     "        </div>",
     '        <p class="planner-hint" data-hint></p>',
@@ -618,13 +626,18 @@ function plannerPage() {
     "          </div>",
     "        </details>",
     '        <details class="ws-sec" open><summary>Ajustes de obra</summary>',
-    '          <p class="ws-tip">Estos valores son para toda la obra. Para cambiar el ladrillo de un solo muro, tocalo en el plano.</p>',
+    '          <p class="ws-tip">Estos valores son para toda la obra. Para cambiar el tipo de un solo muro, tocalo en el plano.</p>',
     '          <form class="tool-form" data-settings novalidate>',
     "          " + p.fields.join("\n          "),
     "          </form>",
     "        </details>",
+    '        <details class="ws-sec" data-types-box><summary>Tipos de muro</summary>',
+    '          <div class="type-editor" data-types></div>',
+    "        </details>",
     '        <details class="ws-sec" open><summary>Capas</summary>',
-    "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["notes", "Anotaciones"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
+    '          <div class="view-tpl" role="group" aria-label="Plantilla de vista"><span>Plantilla de vista</span><div><button type="button" data-view-tpl="municipal" aria-pressed="false">Municipal</button><button type="button" data-view-tpl="obra" aria-pressed="false">Obra</button><button type="button" data-view-tpl="cliente" aria-pressed="false">Cliente</button></div></div>',
+    '          <label class="phase-view">Fases <select data-phase-view><option value="obra">Cómo queda (lo existente en gris)</option><option value="actual">Estado actual (antes de la obra)</option><option value="municipal">Plano municipal (existente, a demoler y a construir)</option></select></label>',
+    "          " + [["names", "Nombres de ambientes"], ["areas", "Superficies de ambientes"], ["dims", "Cotas de paredes"], ["tags", "Códigos de carpintería (P1, V1…)"], ["notes", "Anotaciones"], ["items", "Muebles y artefactos"], ["electric", "Electricidad"], ["below", "Planta de abajo (guía)"], ["roof", "Techo"], ["grid", "Cuadrícula"]].map(([k, text]) => layer(k, text)).join("\n          "),
     "        </details>",
     "      </aside>",
     "    </div>",
@@ -738,7 +751,7 @@ ${PAGES.filter((p) => p.key !== exceptKey).map((p) => `        <li><a class="car
 }
 
 function calculatorPage(p) {
-  p.js = ["lib/manifest.js", "lib/calc.js", "main.js"];
+  p.js = ["lib/manifest.js", "lib/calc.js", "lib/costs.js", "main.js"];
   p.ld = [
     Object.assign({
       "@context": "https://schema.org", "@type": "WebApplication", name: p.h1, description: p.description,
@@ -762,7 +775,7 @@ function calculatorPage(p) {
           <noscript><p class="result-error">Esta calculadora necesita JavaScript para funcionar.</p></noscript>
         </div>
       </div>
-      <p class="badge">Gratis y sin registrarte. Los datos que cargás no salen de tu dispositivo.</p>
+      <p class="badge">Gratis y sin registrarte. Los datos y precios que cargás no salen de tu dispositivo.</p>
     </section>
 
 ${AD("debajo de la calculadora")}
