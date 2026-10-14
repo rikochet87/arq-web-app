@@ -152,6 +152,23 @@
     tile: { size: [2.4, 2.4], depth: 0.0015, soft: 1, tooth: [[200, 200, 2, 0.2]], mottle: [[12, 12, 4, 0.07], [400, 400, 1, 0.03]], draw: tiles(4, 4, [216, 206, 190], 0.07, "#8f887c") }, // cerámico de 60 × 60
     porcelain: { size: [2.4, 2.4], depth: 0.001, soft: 1, mottle: [[3, 3, 5, 0.12], [2, 9, 4, 0.06]], draw: tiles(3, 2.5, [208, 207, 203], 0.03, "#8d8c88") },                             // porcelanato de 80 × 80
     paving: { size: [1.6, 1.6], depth: 0.003, soft: 1, tooth: [[300, 300, 2, 0.6]], mottle: [[8, 8, 4, 0.16], [400, 400, 1, 0.1]], draw: tiles(4, 8, [158, 154, 146], 0.16, "#66635e") }, // baldosa de 40 × 40
+    veneer: { size: [1.6, 1.6], depth: 0.0006, tooth: [[4, 300, 2, 0.4]], mottle: [[4, 160, 3, 0.24], [2, 2, 3, 0.08]], // madera de mueble: la veta, sin juntas
+      draw: function (g) { fill(g, "#b68c5e"); } },
+    fabric: { size: [0.8, 0.8], depth: 0.0012, mottle: [[6, 6, 3, 0.08], [256, 256, 1, 0.1]], // tela tejida: los hilos pasan uno por arriba y otro por abajo
+      draw: function () {},
+      finish: function (px, H) {
+        for (let y = 0; y < PX; y++) for (let x = 0; x < PX; x++) {
+          const over = ((x >> 2) + (y >> 2)) & 1, thread = Math.abs(Math.sin((over ? x : y) * Math.PI / 4)), k = 0.84 + 0.16 * thread, at = (y * PX + x) * 4;
+          px[at] = px[at + 1] = px[at + 2] = 240 * k; px[at + 3] = 255;
+          H[y * PX + x] = thread;
+        }
+      } },
+    granite: { size: [1.2, 1.2], depth: 0.0002, mottle: [[8, 8, 4, 0.16]],
+      draw: function (g, h, rnd) { // granito gris: fondo oscuro con granos claros, negros y algunos rosados
+        fill(g, "#5f5d5b");
+        const grains = ["190,188,184", "30,30,32", "150,146,142", "168,140,132"];
+        for (let i = 0; i < 70000; i++) { g.fillStyle = "rgba(" + grains[Math.floor(rnd() * 3.25)] + "," + (0.35 + rnd() * 0.5).toFixed(2) + ")"; g.fillRect(rnd() * PX, rnd() * PX, 1 + rnd() * 4, 1 + rnd() * 4); }
+      } },
     chapa: { size: [1.216, 1.216], depth: 0.018, mottle: [[64, 2, 2, 0.05], [5, 5, 3, 0.05]], // 16 ondas de 7,6 cm; las vetas corren con la pendiente
       draw: function () {},
       finish: function (px, H) { // el fondo de cada onda va algo más oscuro: de lejos el relieve se pierde y queda el rayado
@@ -207,6 +224,13 @@
     gris: ["Revoque gris", "plaster", { color: 0xb4b1a9 }],
     ladrillo: ["Ladrillo visto", "brick", {}],
     piedra: ["Piedra", "stone", {}]
+  };
+  // De qué está hecho cada mueble o artefacto de la biblioteca (lib/manifest.js). Lo que no figura va de madera.
+  const MADE = {
+    sofa3: "sofa", sofa2: "sofa", sillon: "sofa", cama2: "bed", camaQueen: "bed", cama1: "bed",
+    mesada: "granite", cocina: "enamel", lavarropas: "enamel", termotanque: "enamel", heladera: "steel",
+    inodoro: "loza", bidet: "loza", lavatorio: "loza", banera: "loza", ducha: "loza", piletaLavar: "loza",
+    escalera: "step", parrilla: "grill", auto: "car", arbol: "leaves", pileta: "water"
   };
   const prefs = { hour: 14.5, walls: "blanco" }; // lo último que se eligió: se conserva al volver a abrir el render
 
@@ -272,7 +296,11 @@
       alisado: ["concrete", { roughness: 0.6 }], sin: ["concrete", { color: 0xcfc6b8 }], paving: ["paving"], grass: ["grass", { roughness: 1 }],
       glass: [0x6f8fa3, { roughness: 0.04, metalness: 0.2, transparent: true, opacity: 0.42, side: THREE.DoubleSide, envMapIntensity: 3 }],
       trim: [0xdedbd5, { side: THREE.DoubleSide, shadowSide: THREE.DoubleSide }],
-      frame: [0xf2f1ee, { roughness: 0.45, metalness: 0.15 }], leaf: ["wood", { color: 0x9a7b62, roughness: 0.5, side: THREE.FrontSide }], item: [0xb9a78f, { roughness: 0.75 }]
+      frame: [0xf2f1ee, { roughness: 0.45, metalness: 0.15 }], leaf: ["wood", { color: 0x9a7b62, roughness: 0.5, side: THREE.FrontSide }],
+      // Muebles y artefactos
+      "it-wood": ["veneer", { roughness: 0.55 }], "it-sofa": ["fabric", { color: 0x8d9197, roughness: 1 }], "it-bed": ["fabric", { color: 0xece7dc, roughness: 1 }],
+      "it-granite": ["granite", { roughness: 0.22 }], "it-enamel": [0xf3f3f1, { roughness: 0.3 }], "it-steel": [0xb7bbc0, { roughness: 0.35, metalness: 0.6 }], "it-loza": [0xfafaf6, { roughness: 0.12 }],
+      "it-step": ["concrete"], "it-grill": ["brick"], "it-car": [0x56606c, { roughness: 0.3, metalness: 0.5 }], "it-leaves": ["grass", { color: 0x86a070, roughness: 1 }], "it-water": [0x3f8fb4, { roughness: 0.05, metalness: 0.1 }]
     };
     Object.keys(WALLS).forEach(function (k) { RECIPE["wall-" + k] = WALLS[k].slice(1); });
     // Cada material se arma la primera vez que hace falta: pintar una textura lleva su tiempo.
@@ -336,7 +364,7 @@
     });
     data.doors.forEach(function (d) { const s = span(d, 4.5); put(s.group, box(s.len - 0.03, s.tall - 0.01, s.thick), "leaf"); });
     data.items.forEach(function (it) {
-      const mesh = put(house, box(it.w * M, it.h * M, it.d * M), "item");
+      const mesh = put(house, box(it.w * M, it.h * M, it.d * M), "it-" + (MADE[it.type] || "wood"));
       mesh.position.set(it.x * M, (it.z + it.h / 2) * M, it.y * M);
       mesh.rotation.y = -it.r * Math.PI / 180;
     });
