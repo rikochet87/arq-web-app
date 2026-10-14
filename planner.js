@@ -1027,7 +1027,12 @@
         let opened = null, read = null;
         try { opened = normalize(JSON.parse(reader.result)); } catch (e) { /* no es JSON */ }
         if (!opened && brand.cad) { // un dibujo de AutoCAD: se deducen los muros y las aberturas
-          try { read = brand.cad.toPlan(brand.cad.read(reader.result)); opened = normalize(read.plan); } catch (e) { /* tampoco es un DXF que se pueda leer */ }
+          try {
+            // Si el archivo trae cortes y vistas, se toma el dibujo que parece la planta; los cercos quedan afuera.
+            const drawing = brand.cad.read(reader.result), sh = brand.cad.sheets ? brand.cad.sheets(drawing) : { planta: -1 };
+            read = brand.cad.toPlan(drawing, sh.planta >= 0 ? { box: sh.regions[sh.planta].box, unit: sh.unit } : {});
+            opened = normalize(read.plan);
+          } catch (e) { /* tampoco es un DXF que se pueda leer */ }
         }
         if (!opened) { hint.textContent = "Ese archivo no es un plano de " + (brand.name || "este sitio") + " ni un DXF con muros que se puedan leer."; return; }
         pushHistory();
