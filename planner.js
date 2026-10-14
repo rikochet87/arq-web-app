@@ -1030,7 +1030,10 @@
           try {
             // Si el archivo trae cortes y vistas, se toma el dibujo que parece la planta; los cercos quedan afuera.
             const drawing = brand.cad.read(reader.result), sh = brand.cad.sheets ? brand.cad.sheets(drawing) : { planta: -1 };
-            read = brand.cad.toPlan(drawing, sh.planta >= 0 ? { box: sh.regions[sh.planta].box, unit: sh.unit } : {});
+            // La planta de techos y los cortes del mismo archivo dan las alturas de las losas y los parapetos.
+            const techo = sh.planta >= 0 && sh.regions.find(function (r) { return r.kind === "techo"; }), levels = [];
+            if (techo) sh.regions.forEach(function (r) { if (r.kind === "corte" || r.kind === "vista") brand.cad.levelsIn(drawing, r.box).forEach(function (l) { levels.push(l.v); }); });
+            read = brand.cad.toPlan(drawing, sh.planta >= 0 ? { box: sh.regions[sh.planta].box, unit: sh.unit, heights: techo ? { techo: { drawing: drawing, box: techo.box }, levels: levels } : null } : {});
             opened = normalize(read.plan);
           } catch (e) { /* tampoco es un DXF que se pueda leer */ }
         }

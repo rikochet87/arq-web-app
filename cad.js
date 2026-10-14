@@ -11,8 +11,9 @@
   const HANDOFF = "calcuobra.importado"; // plano que se le pasa al diseñador: planner.js lo toma al abrir con #importado
   const MAX = 40 * 1024 * 1024;
   const UNIT_NAMES = { 100: "metros", 1: "centímetros", 0.1: "milímetros" };
-  const KIND_NAMES = { planta: "planta", corte: "corte", vista: "vista", otro: "otro dibujo", "?": "sin identificar" };
-  const ROLES = [["planta", "Planta → 3D"], ["corte", "Corte"], ["vista", "Vista"], ["otro", "No usar"]];
+  const KIND_NAMES = { planta: "planta", techo: "planta de techos", corte: "corte", vista: "vista", otro: "otro dibujo", "?": "sin identificar" };
+  const ROLES = [["planta", "Planta → 3D"], ["techo", "Planta de techos"], ["corte", "Corte"], ["vista", "Vista"], ["otro", "No usar"]];
+  const OWN = ["techo", "corte", "vista"]; // papeles que un dibujo conserva cuando deja de ser la planta
   const ERRORS = {
     dwg: "Ese archivo es un DWG, que es un formato cerrado de AutoCAD. Abrilo en AutoCAD (o en un visor gratuito como DWG TrueView), elegí Guardar como → «DXF de AutoCAD 2000» o posterior, y subí ese DXF.",
     binary: "Ese DXF está guardado en formato binario. Guardalo de nuevo como DXF de texto (ASCII), que es la opción por defecto.",
@@ -151,7 +152,15 @@
       if (current < 0) { say(ERRORS.noplan, true); return; }
       const reg = regions[current], src = reg.source;
       let result;
-      try { result = brand.cad.toPlan(src.drawing, { box: reg.box, unit: pick.unit || src.sheets.unit, layers: pick.layers, fence: pick.fence }); }
+      // Alturas: la planta de techos da la cara de arriba de cada losa y los cortes y las vistas, los parapetos.
+      const techo = regions.find(function (r) { return r.role === "techo"; }), levels = [];
+      regions.forEach(function (r) {
+        if (r.role !== "corte" && r.role !== "vista") return;
+        if (!r.levels) r.levels = brand.cad.levelsIn(r.source.drawing, r.box).map(function (l) { return l.v; });
+        levels.push.apply(levels, r.levels);
+      });
+      const heights = techo ? { techo: { drawing: techo.source.drawing, box: techo.box }, levels: levels } : null;
+      try { result = brand.cad.toPlan(src.drawing, { box: reg.box, unit: pick.unit || src.sheets.unit, layers: pick.layers, fence: pick.fence, heights: heights }); }
       catch (e) { if (!e.code) console.warn("[cad]", e); say(ERRORS[e.code] || "No se pudo interpretar el dibujo.", true); drawings(); return; }
       plan = result.plan; last = result;
       if (!work.hidden) plan.settings.roof = roofSel.value; // el techo elegido se conserva al cambiar las opciones
@@ -192,6 +201,11 @@
       if (result) {
         text = "Encontré " + text + " Dibujo en " + (UNIT_NAMES[result.unit] || "otra unidad") + ".";
         if (result.single) text += " Parece dibujado con una sola línea por muro: tomé 15 cm de espesor.";
+        if (result.heights) {
+          const m = function (list) { return list.map(function (v) { return v.toFixed(2).replace(".", ","); }).join(" y ") + " m"; };
+          text += " Alturas de la planta de techos: " + (result.heights.slabs.length > 1 ? "losas a " : "losa a ") + m(result.heights.slabs) +
+            (result.heights.parapets.length ? ", con parapetos hasta " + m(result.heights.parapets) + " según los cortes." : ".");
+        }
         if (result.stats.fences) text += " " + (result.stats.fences === 1 ? "Un tramo no cierra" : result.stats.fences + " tramos no cierran") + " ningún ambiente: los tomé como cerco y no van en el 3D.";
         if (!v.rooms.length) text += " Ningún ambiente quedó cerrado: revisá las capas de muros o la unidad.";
         if (wide > 15000 || wide < 200) text += " Esas medidas no parecen las de una casa: probá con otra unidad del dibujo.";
@@ -252,8 +266,9 @@
         }).join("") + "</select></figcaption></figure>";
       });
       html += "</div>";
-      const extras = regions.some(function (r) { return r.role === "corte" || r.role === "vista"; });
-      if (extras) html += '<p class="badge">Por ahora el 3D se arma con la planta: los cortes y las vistas quedan acá para compararlos. Las alturas se ajustan en el diseñador.</p>';
+      const hasRoof = regions.some(function (r) { return r.role === "techo"; }), extras = regions.some(function (r) { return r.role === "corte" || r.role === "vista"; });
+      if (hasRoof || extras) html += '<p class="badge">' + (hasRoof ? "La altura de cada losa sale de las cotas de la planta de techos" + (extras ? ", y la de los parapetos, de los cortes y las vistas." : ".") :
+        "Para tomar las alturas falta la planta de techos, con las cotas de cada losa. Sin ella, todo se levanta a la altura común.") + "</p>";
       $("[data-cad-drawings-list]", drawingsBox).innerHTML = html;
       $("summary", drawingsBox).textContent = "Dibujos (" + regions.length + ")";
       if (regions.length > 1) drawingsBox.open = true;
@@ -263,13 +278,15 @@
       const r = regions[i];
       if (!r) return;
       if (role === "planta") {
-        regions.forEach(function (o, j) { if (j !== i && o.role === "planta") o.role = o.kind === "corte" || o.kind === "vista" ? o.kind : "otro"; });
+        regions.forEach(function (o, j) { if (j !== i && o.role === "planta") o.role = OWN.indexOf(o.kind) >= 0 ? o.kind : "otro"; });
         r.role = "planta";
         if (current !== i) { current = i; pick = { layers: null, unit: 0, fence: {} }; unitSel.value = "0"; fileName = r.source.name.replace(/\.[^.]+$/, "") || "plano"; convert(); }
         else drawings();
         return;
       }
+      if (role === "techo") regions.forEach(function (o, j) { if (j !== i && o.role === "techo") o.role = "otro"; }); // una sola planta de techos
       r.role = role;
+      if (i !== current && current >= 0) { convert(); return; } // un techo, un corte o una vista cambian las alturas
       if (i === current) {
         // La planta pasó a ser otra cosa: va la siguiente que parezca planta, si hay.
         current = regions.findIndex(function (o) { return o.role !== "corte" && o.role !== "vista" && o !== r && (o.kind === "planta" || o.kind === "?"); });

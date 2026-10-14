@@ -480,7 +480,7 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .cad-tile.is-planta .cad-ink { stroke: var(--ink); }
 .cad-badge { position: absolute; top: 4px; left: 4px; padding: .05rem .35rem; font: 500 .66rem/1.4 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .cad-tile.is-planta .cad-badge { color: var(--accent-ink, #111); background: var(--accent); border-color: var(--accent); }
-.cad-tile.is-corte .cad-badge, .cad-tile.is-vista .cad-badge { color: var(--ink); }
+.cad-tile.is-corte .cad-badge, .cad-tile.is-vista .cad-badge, .cad-tile.is-techo .cad-badge { color: var(--ink); }
 .cad-tile figcaption { display: grid; gap: .25rem; font-size: .7rem; color: #c8c8c8; }
 .cad-tile figcaption small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .cad-side .cad-tile select { min-height: 34px; padding: .2rem .4rem; font-size: .74rem; }
