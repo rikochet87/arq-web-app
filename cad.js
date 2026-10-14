@@ -206,6 +206,7 @@
           text += " Alturas de la planta de techos: " + (result.heights.slabs.length > 1 ? "losas a " : "losa a ") + m(result.heights.slabs) +
             (result.heights.parapets.length ? ", con parapetos hasta " + m(result.heights.parapets) + " según los cortes." : ".");
         }
+        if (result.stats.notes) text += " " + (result.stats.notes === 1 ? "Una abertura tomó" : result.stats.notes + " aberturas tomaron") + " su ancho, alto y antepecho de las notas del plano.";
         if (result.stats.fences) text += " " + (result.stats.fences === 1 ? "Un tramo no cierra" : result.stats.fences + " tramos no cierran") + " ningún ambiente: los tomé como cerco y no van en el 3D.";
         if (!v.rooms.length) text += " Ningún ambiente quedó cerrado: revisá las capas de muros o la unidad.";
         if (wide > 15000 || wide < 200) text += " Esas medidas no parecen las de una casa: probá con otra unidad del dibujo.";
