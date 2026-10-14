@@ -469,20 +469,21 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .cad-key-fence { flex: none; width: 22px; height: 0; border-top: 3px dashed var(--accent); transform: translateY(-.2em); }
 .cad-drawings summary { font-size: .78rem; font-weight: 500; color: #c8c8c8; cursor: pointer; }
 .cad-drawings[open] > summary { margin-bottom: .5rem; }
-.cad-sheet { margin: 0 0 .6rem; padding: .4rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-.cad-sheet svg { display: block; width: 100%; height: auto; max-height: 220px; background: var(--bg); }
-.cad-sheet figcaption { margin-top: .3rem; overflow: hidden; font-size: .72rem; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.cad-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
+.cad-tile { display: grid; gap: .3rem; align-content: start; margin: 0; padding: .35rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-tile.is-planta { border-color: var(--accent); }
+.cad-tile.is-otro .cad-thumb svg { opacity: .45; }
+.cad-thumb { position: relative; display: block; width: 100%; padding: 0; background: var(--bg); border: 0; border-radius: var(--radius); cursor: pointer; }
+.cad-thumb svg { display: block; width: 100%; height: 96px; }
+.cad-thumb:hover, .cad-thumb:focus-visible { outline: 1px solid var(--accent); outline-offset: 0; }
 .cad-ink { fill: none; stroke: var(--muted); stroke-width: .8; vector-effect: non-scaling-stroke; }
-.cad-region { cursor: pointer; }
-.cad-region rect { fill: transparent; stroke: var(--line-hi); stroke-width: 1.2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.cad-region text { fill: var(--muted); font-family: var(--mono); }
-.cad-region.is-planta rect { fill: var(--accent); fill-opacity: .08; stroke: var(--accent); stroke-dasharray: none; stroke-width: 2; }
-.cad-region.is-planta text { fill: var(--accent); }
-.cad-region.is-corte rect, .cad-region.is-vista rect { stroke: var(--ink); stroke-dasharray: none; }
-.cad-region.is-corte text, .cad-region.is-vista text { fill: var(--ink); }
-.cad-region:hover rect { fill: var(--accent); fill-opacity: .14; }
-.cad-roles { display: grid; gap: .5rem; }
-.cad-roles label { display: grid; gap: .2rem; font-size: .74rem; color: #c8c8c8; }
+.cad-tile.is-planta .cad-ink { stroke: var(--ink); }
+.cad-badge { position: absolute; top: 4px; left: 4px; padding: .05rem .35rem; font: 500 .66rem/1.4 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.cad-tile.is-planta .cad-badge { color: var(--accent-ink, #111); background: var(--accent); border-color: var(--accent); }
+.cad-tile.is-corte .cad-badge, .cad-tile.is-vista .cad-badge { color: var(--ink); }
+.cad-tile figcaption { display: grid; gap: .25rem; font-size: .7rem; color: #c8c8c8; }
+.cad-tile figcaption small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.cad-side .cad-tile select { min-height: 34px; padding: .2rem .4rem; font-size: .74rem; }
 .cad-add { display: flex; flex-wrap: wrap; gap: .4rem; }
 .cad-add .btn { flex: 1; }
 

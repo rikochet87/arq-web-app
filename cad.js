@@ -13,7 +13,6 @@
   const UNIT_NAMES = { 100: "metros", 1: "centímetros", 0.1: "milímetros" };
   const KIND_NAMES = { planta: "planta", corte: "corte", vista: "vista", otro: "otro dibujo", "?": "sin identificar" };
   const ROLES = [["planta", "Planta → 3D"], ["corte", "Corte"], ["vista", "Vista"], ["otro", "No usar"]];
-  const SLOT_NAMES = { planta: "Planta", corte: "Cortes", vista: "Vistas" };
   const ERRORS = {
     dwg: "Ese archivo es un DWG, que es un formato cerrado de AutoCAD. Abrilo en AutoCAD (o en un visor gratuito como DWG TrueView), elegí Guardar como → «DXF de AutoCAD 2000» o posterior, y subí ese DXF.",
     binary: "Ese DXF está guardado en formato binario. Guardalo de nuevo como DXF de texto (ASCII), que es la opción por defecto.",
@@ -211,52 +210,48 @@
     }
 
     // ---------- Dibujos de los archivos ----------
-    // Vista general de un archivo: todas sus líneas y un recuadro por dibujo con su papel. Tocar un recuadro lo hace la planta.
-    function overview(src) {
-      const d = src.drawing, mine = regions.filter(function (r) { return r.source === src; });
-      if (!mine.length) return "";
-      let X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity;
-      mine.forEach(function (r) { X0 = Math.min(X0, r.box.x0); Y0 = Math.min(Y0, r.box.y0); X1 = Math.max(X1, r.box.x1); Y1 = Math.max(Y1, r.box.y1); });
-      const W = X1 - X0, H = Y1 - Y0, pad = Math.max(W, H) * 0.03, k = Math.max(W, H) / 1000, q = function (v) { return Math.round(v / k) / 10; };
-      const inView = function (x, y) { return x >= X0 && x <= X1 && y >= Y0 && y <= Y1; };
+    // Miniatura de un dibujo: sus líneas, dentro de un cuadro de 100 de lado. Se arma una sola vez por dibujo.
+    function thumb(r) {
+      if (r.thumb) return r.thumb;
+      const d = r.source.drawing, b = r.box, W = b.x1 - b.x0, H = b.y1 - b.y0, k = Math.max(W, H) / 100;
+      const q = function (v) { return Math.round(v / k * 10) / 10; }, inBox = function (x, y) { return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; };
       let path = "", n = 0;
-      for (let i = 0; i < d.segs.length && n < 60000; i++) {
-        const s = d.segs[i];
-        if (!inView(s.x1, s.y1) && !inView(s.x2, s.y2)) continue;
-        path += "M" + q(s.x1 - X0) + " " + q(Y1 - s.y1) + "L" + q(s.x2 - X0) + " " + q(Y1 - s.y2);
+      for (let i = 0; i < d.segs.length && n < 20000; i++) {
+        const sg = d.segs[i];
+        if (!inBox(sg.x1, sg.y1) || !inBox(sg.x2, sg.y2)) continue;
+        const x1 = q(sg.x1 - b.x0), y1 = q(b.y1 - sg.y1), x2 = q(sg.x2 - b.x0), y2 = q(b.y1 - sg.y2);
+        if (x1 === x2 && y1 === y2) continue; // más chica que la décima parte de un punto: no se ve
+        path += "M" + x1 + " " + y1 + "L" + x2 + " " + y2;
         n++;
       }
       d.arcs.forEach(function (a) {
-        if (!inView(a.c.x, a.c.y)) return;
-        const r = q(a.r), sweep = ((Math.atan2(a.q.y - a.c.y, a.q.x - a.c.x) - Math.atan2(a.p.y - a.c.y, a.p.x - a.c.x)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        path += "M" + q(a.p.x - X0) + " " + q(Y1 - a.p.y) + "A" + r + " " + r + " 0 " + (sweep > Math.PI ? 1 : 0) + " 0 " + q(a.q.x - X0) + " " + q(Y1 - a.q.y);
+        if (!inBox(a.c.x, a.c.y)) return;
+        const rr = q(a.r), sweep = ((Math.atan2(a.q.y - a.c.y, a.q.x - a.c.x) - Math.atan2(a.p.y - a.c.y, a.p.x - a.c.x)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        if (rr < 0.3) return;
+        path += "M" + q(a.p.x - b.x0) + " " + q(b.y1 - a.p.y) + "A" + rr + " " + rr + " 0 " + (sweep > Math.PI ? 1 : 0) + " 0 " + q(a.q.x - b.x0) + " " + q(b.y1 - a.q.y);
       });
-      const font = q(Math.max(W, H) * 0.035);
-      let boxes = "";
-      mine.forEach(function (r) {
-        const at = regions.indexOf(r), x = q(r.box.x0 - X0), y = q(Y1 - r.box.y1), w = q(r.box.x1 - r.box.x0), h = q(r.box.y1 - r.box.y0);
-        boxes += '<g class="cad-region is-' + r.role + (at === current ? " is-current" : "") + '" data-cad-region="' + at + '"><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>' +
-          '<text x="' + r2(x + font * 0.4) + '" y="' + r2(y + font * 1.1) + '" font-size="' + font + '">' + escHTML(roleName(r.role)) + "</text><title>" + escHTML(regionName(r)) + "</title></g>";
-      });
-      const v = [-pad / k / 10, -pad / k / 10, W / k / 10 + 2 * pad / k / 10, H / k / 10 + 2 * pad / k / 10].map(r2).join(" ");
-      return '<figure class="cad-sheet"><svg viewBox="' + v + '" role="img" aria-label="Dibujos de ' + escHTML(src.name) + '"><path class="cad-ink" d="' + path + '"/>' + boxes + "</svg>" +
-        "<figcaption>" + escHTML(src.name) + " · " + SLOT_NAMES[src.slot === "otro" ? "planta" : src.slot] + "</figcaption></figure>";
+      r.thumb = '<svg viewBox="-3 -3 ' + r2(W / k + 6) + " " + r2(H / k + 6) + '" aria-hidden="true"><path class="cad-ink" d="' + path + '"/></svg>';
+      return r.thumb;
     }
     function roleName(role) { return role === "otro" ? "No usar" : ROLES.find(function (x) { return x[0] === role; })[1].replace(" → 3D", ""); }
     function regionName(r) {
       const n = regions.indexOf(r) + 1;
-      return "Dibujo " + n + " · " + (r.title || KIND_NAMES[r.kind].charAt(0).toUpperCase() + KIND_NAMES[r.kind].slice(1)) + " · " + E.fmt(r.w, 1) + " × " + E.fmt(r.h, 1) + " m";
+      return n + " · " + (r.title || KIND_NAMES[r.kind].charAt(0).toUpperCase() + KIND_NAMES[r.kind].slice(1)) + " · " + E.fmt(r.w, 1) + " × " + E.fmt(r.h, 1) + " m";
     }
 
+    // Un cuadro por dibujo, con su miniatura y su papel. Tocar la miniatura la hace la planta.
     function drawings() {
       if (!regions.length) { drawingsBox.hidden = true; return; }
       drawingsBox.hidden = false;
-      let html = sources.map(overview).join("");
-      html += '<div class="cad-roles">' + regions.map(function (r, i) {
-        return '<label><span>' + escHTML(regionName(r)) + '</span><select data-cad-role="' + i + '">' + ROLES.map(function (o) {
+      let html = '<div class="cad-tiles">';
+      regions.forEach(function (r, i) {
+        html += '<figure class="cad-tile is-' + r.role + '"><button type="button" class="cad-thumb" data-cad-region="' + i + '" title="' + (r.role === "planta" ? "Esta es la planta del 3D" : "Usar este dibujo como planta") + '">' + thumb(r) +
+          '<span class="cad-badge">' + escHTML(roleName(r.role)) + "</span></button><figcaption>" + escHTML(regionName(r)) +
+          (sources.length > 1 ? "<small>" + escHTML(r.source.name) + "</small>" : "") + '<select data-cad-role="' + i + '" aria-label="Papel del dibujo ' + (i + 1) + '">' + ROLES.map(function (o) {
           return '<option value="' + o[0] + '"' + (r.role === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
-        }).join("") + "</select></label>";
-      }).join("") + "</div>";
+        }).join("") + "</select></figcaption></figure>";
+      });
+      html += "</div>";
       const extras = regions.some(function (r) { return r.role === "corte" || r.role === "vista"; });
       if (extras) html += '<p class="badge">Por ahora el 3D se arma con la planta: los cortes y las vistas quedan acá para compararlos. Las alturas se ajustan en el diseñador.</p>';
       $("[data-cad-drawings-list]", drawingsBox).innerHTML = html;
