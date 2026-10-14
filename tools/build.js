@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const VERSION = "20261015"; // subilo en cada publicación para que los navegadores tomen los cambios
+const VERSION = "20261018"; // subilo en cada publicación para que los navegadores tomen los cambios
 const SITE_URL = ""; // ej. "https://www.tudominio.com.ar" — al completarlo se generan canonical, sitemap.xml y robots.txt
 // Datos del responsable del sitio, para las páginas legales. Lo que quede vacío aparece marcado como TODO en la página.
 const OWNER = {
