@@ -110,12 +110,10 @@
       groups[room.level].add(mesh);
       meshes++;
     });
-    // Caras del techo: polígonos convexos triangulados en abanico.
+    // Caras del techo: el contorno de la casa puede ser cóncavo y tener el hueco de un patio, así que se triangula entero.
     data.roof.forEach(function (poly) {
       const vertices = [];
-      for (let i = 1; i < poly.points.length - 1; i++) {
-        [poly.points[0], poly.points[i], poly.points[i + 1]].forEach(function (p) { vertices.push(p.x * M, p.z * M, p.y * M); });
-      }
+      B.plan.roofTriangles(poly, THREE).forEach(function (p) { vertices.push(p.x * M, p.z * M, p.y * M); });
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
       geometry.computeVertexNormals();

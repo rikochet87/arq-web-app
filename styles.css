@@ -522,7 +522,7 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .v3d-pad button { color: #bdbdbd; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); touch-action: none; }
 .v3d-pad button:active { background: var(--raised); color: var(--accent); }
 .v3d-hint { position: absolute; z-index: 2; left: .8rem; bottom: .8rem; max-width: calc(100% - 12rem); padding: .4rem .6rem; font: 500 .7rem/1.4 var(--mono); color: var(--muted); background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
-@media (any-pointer: coarse) { .v3d-hint { display: none; } }
+@media (any-pointer: coarse) { .v3d-hint:not(.is-busy) { display: none; } }
 .ws-btn { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius); color: #bdbdbd; }
 .ws-btn:hover { background: var(--raised); color: var(--accent); }
 .ws-btn svg { width: 18px; height: 18px; stroke-width: 1.4; }

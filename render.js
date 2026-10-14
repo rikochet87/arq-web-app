@@ -3,7 +3,9 @@
    Mientras se mueve la cámara se ve una imagen rápida. Al soltarla, la imagen se afina sola: se promedian
    SAMPLES cuadros, cada uno con el sol corrido dentro de su disco (sombra con penumbra), con una luz de cielo
    que llega desde un punto distinto de la bóveda (rincones más oscuros, sombra suave bajo los aleros) y con la
-   cámara corrida una fracción de píxel (bordes lisos). Las texturas se pintan en el momento: no se descarga nada. */
+   cámara corrida una fracción de píxel (bordes lisos). Las texturas se pintan en el momento: no se descarga nada.
+   Alrededor de la casa: cielo con nubes, vereda perimetral y alféizar bajo las ventanas. La imagen para descargar se
+   dibuja de nuevo en alta resolución. */
 (function () {
   "use strict";
 
@@ -16,9 +18,22 @@
 
   const QUAD = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }";
   const SKY_VS = "varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
-  const SKY_FS = "uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunColor; varying vec3 vDir;\n" +
+  /* Cielo: degradé del horizonte al cenit, el sol con su halo y nubes. Las nubes son ruido suave proyectado sobre un
+     techo plano (se achican y se juntan hacia el horizonte, como las de verdad), iluminadas del lado del sol. */
+  const SKY_FS = "uniform vec3 zenith; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunColor; uniform float cover; varying vec3 vDir;\n" +
+    "float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n" +
+    "float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);\n" +
+    "  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }\n" +
+    "float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; } return v; }\n" +
     "void main() { vec3 d = normalize(vDir); float s = max(dot(d, sunDir), 0.0);\n" +
     "  vec3 c = mix(horizon, zenith, pow(max(d.y, 0.0), 0.45)) + sunColor * (pow(s, 700.0) * 5.0 + pow(s, 10.0) * 0.16);\n" +
+    "  if (d.y > 0.0) {\n" +
+    "    vec2 p = d.xz / (d.y + 0.08) * 1.6;\n" +
+    "    float n = fbm(p + vec2(3.1, 7.7)), body = smoothstep(cover, cover + 0.22, n) * smoothstep(0.0, 0.18, d.y);\n" +
+    "    float lit = 0.75 + 0.25 * clamp(fbm(p + sunDir.xz * 0.35 + vec2(3.1, 7.7)) - n + 0.5, 0.0, 1.0);\n" +
+    "    vec3 cloud = mix(horizon, vec3(1.0), 0.6) * lit + sunColor * pow(s, 6.0) * 0.35;\n" +
+    "    c = mix(c, cloud, body * 0.85);\n" +
+    "  }\n" +
     "  gl_FragColor = vec4(c, 1.0);\n  #include <tonemapping_fragment>\n  #include <colorspace_fragment>\n}";
 
   // Sucesión de Halton: reparte las muestras parejo, sin los amontonamientos del azar puro.
@@ -361,6 +376,11 @@
       const bar = 0.05, deep = 0.07, parts = [[s.len, bar, 0, s.tall / 2 - bar / 2], [s.len, bar, 0, bar / 2 - s.tall / 2], [bar, s.tall, s.len / 2 - bar / 2, 0], [bar, s.tall, bar / 2 - s.len / 2, 0]];
       if (s.len > 1) parts.push([bar * 0.8, s.tall, 0, 0]); // dos hojas
       parts.forEach(function (p) { put(s.group, box(p[0], p[1], deep), "frame").position.set(p[2], p[3], 0); });
+      // Alféizar: la ventana que no llega al piso apoya en una losetita que asoma unos centímetros de cada lado del muro.
+      const under = data.boxes.find(function (o) {
+        return o.kind !== "glass" && o.level === b.level && Math.abs(o.z1 - b.z0) < 0.5 && Math.hypot(o.a.x - b.a.x, o.a.y - b.a.y) < 1 && Math.hypot(o.b.x - b.b.x, o.b.y - b.b.y) < 1;
+      });
+      if (under) put(s.group, box(s.len + 0.08, 0.035, under.thick * M + 0.06), "trim").position.set(0, -s.tall / 2 - 0.0175, 0);
     });
     data.doors.forEach(function (d) { const s = span(d, 4.5); put(s.group, box(s.len - 0.03, s.tall - 0.01, s.thick), "leaf"); });
     data.items.forEach(function (it) {
@@ -375,16 +395,39 @@
       mesh.rotation.x = Math.PI / 2;
       mesh.position.y = room.z * M + (room.surface ? 0.03 : 0.04);
     });
-    // Techo: caras trianguladas en abanico. La textura corre a lo largo de la pendiente.
-    // La cubierta lleva además un canto de 12 cm en todo su borde, para que no parezca una hoja de papel.
+    // Vereda perimetral: una faja de baldosas al pie de los muros que dan afuera, en planta baja. Cada lado de un ambiente
+    // que no linda con otro ambiente pone su faja hacia afuera, estirada en las puntas para cubrir las esquinas. Las fajas
+    // se pisan entre sí, pero como la textura va en coordenadas del terreno el encuentro no se nota.
+    const WALK = 0.75 + 0.15; // m: 75 cm de vereda más el medio muro que queda debajo
+    indoor.filter(function (r) { return r.level === 0; }).forEach(function (room) {
+      const pts = room.points, n = pts.length;
+      pts.forEach(function (p, i) {
+        const q = pts[(i + 1) % n], dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy);
+        if (len < 20) return;
+        const ux = dx / len, uy = dy / len, mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+        let nx = -uy, ny = ux;
+        if (B.plan.inside(pts, { x: mid.x + nx * 5, y: mid.y + ny * 5 })) { nx = -nx; ny = -ny; } // la normal tiene que apuntar afuera del ambiente
+        const probe = { x: mid.x + nx * 60, y: mid.y + ny * 60 };
+        if (indoor.some(function (r) { return r.level === 0 && B.plan.inside(r.points, probe); })) return; // del otro lado hay otro ambiente
+        const w = WALK / M, a = { x: p.x - ux * w, y: p.y - uy * w }, b = { x: q.x + ux * w, y: q.y + uy * w };
+        const shape = new THREE.Shape([a, b, { x: b.x + nx * w, y: b.y + ny * w }, { x: a.x + nx * w, y: a.y + ny * w }].map(function (c) { return new THREE.Vector2(c.x * M, c.y * M); }));
+        const strip = put(house, keep(new THREE.ShapeGeometry(shape)), "paving", false);
+        strip.rotation.x = Math.PI / 2;
+        strip.position.y = 0.025; // apenas sobre los patios dibujados, que van a 2 cm
+      });
+    });
+    // Techo: cada cara se triangula entera, aunque sea cóncava o tenga el hueco de un patio. La textura corre a lo
+    // largo de la pendiente. La cubierta lleva además un canto de 12 cm en todo su borde, para que no parezca una hoja de papel.
     const EDGE = 0.12;
     data.roof.forEach(function (poly) {
       const at = [], uv = [], lengthwise = !ridge || ridge.alongX;
       if (poly.kind !== "ext") {
-        const rim = [], n = poly.points.length;
-        poly.points.forEach(function (p, i) {
-          const q = poly.points[(i + 1) % n];
-          rim.push(p.x * M, p.z * M, p.y * M, q.x * M, q.z * M, q.y * M, q.x * M, q.z * M - EDGE, q.y * M, p.x * M, p.z * M, p.y * M, q.x * M, q.z * M - EDGE, q.y * M, p.x * M, p.z * M - EDGE, p.y * M);
+        const rim = [];
+        [poly.points].concat(poly.holes || []).forEach(function (ring) {
+          ring.forEach(function (p, i) {
+            const q = ring[(i + 1) % ring.length];
+            rim.push(p.x * M, p.z * M, p.y * M, q.x * M, q.z * M, q.y * M, q.x * M, q.z * M - EDGE, q.y * M, p.x * M, p.z * M, p.y * M, q.x * M, q.z * M - EDGE, q.y * M, p.x * M, p.z * M - EDGE, p.y * M);
+          });
         });
         const skirt = keep(new THREE.BufferGeometry());
         skirt.setAttribute("position", new THREE.Float32BufferAttribute(rim, 3));
@@ -393,18 +436,23 @@
       }
       // El frente de cada cara mira hacia afuera (la cubierta hacia arriba, el cerramiento hacia el alero):
       // si quedara al revés, la corrección de sombras la empujaría hacia adentro y la cara se taparía a sí misma.
-      const pts = poly.points.slice(), a = pts[0], b = pts[1], c = pts[2], mid = pts.reduce(function (t, p) { return { x: t.x + p.x / pts.length, y: t.y + p.y / pts.length }; }, { x: 0, y: 0 });
-      const out = poly.kind !== "ext" ? (b.y - a.y) * (c.x - a.x) - (b.x - a.x) * (c.y - a.y)
-        : ((b.z - a.z) * (c.y - a.y) - (b.y - a.y) * (c.z - a.z)) * (mid.x - (ridge.x0 + ridge.x1) / 2) + ((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) * (mid.y - (ridge.y0 + ridge.y1) / 2);
-      if (out < 0) pts.reverse();
+      const pts = poly.points.slice(), mid = pts.reduce(function (t, p) { return { x: t.x + p.x / pts.length, y: t.y + p.y / pts.length }; }, { x: 0, y: 0 });
+      const upward = function (a, b, c) { return (b.y - a.y) * (c.x - a.x) - (b.x - a.x) * (c.y - a.y); };
+      let tris;
+      if (poly.kind === "ext") {
+        const a = pts[0], b = pts[1], c = pts[2];
+        if (((b.z - a.z) * (c.y - a.y) - (b.y - a.y) * (c.z - a.z)) * (mid.x - (ridge.x0 + ridge.x1) / 2) + ((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) * (mid.y - (ridge.y0 + ridge.y1) / 2) < 0) pts.reverse();
+        tris = B.plan.roofTriangles({ kind: "ext", points: pts }, THREE);
+      } else {
+        tris = B.plan.roofTriangles(poly, THREE);
+        for (let t = 0; t < tris.length; t += 3) if (upward(tris[t], tris[t + 1], tris[t + 2]) < 0) { const x = tris[t + 1]; tris[t + 1] = tris[t + 2]; tris[t + 2] = x; }
+      }
       // La textura de la cubierta se pinta cuesta arriba: en cada agua se la da vuelta si hace falta, para que las tejas monten hacia abajo.
       const run = function (p) { return lengthwise ? p.y : p.x; }, high = pts.reduce(function (t, p) { return p.z > t.z ? p : t; }), low = pts.reduce(function (t, p) { return p.z < t.z ? p : t; }), climb = run(high) < run(low) ? -1 : 1;
-      for (let i = 1; i < pts.length - 1; i++) {
-        [pts[0], pts[i], pts[i + 1]].forEach(function (p) {
-          at.push(p.x * M, p.z * M, p.y * M);
-          if (poly.kind === "ext") uv.push((p.x + p.y) * M, p.z * M); else uv.push((lengthwise ? p.x : p.y) * M, run(p) * climb * M);
-        });
-      }
+      tris.forEach(function (p) {
+        at.push(p.x * M, p.z * M, p.y * M);
+        if (poly.kind === "ext") uv.push((p.x + p.y) * M, p.z * M); else uv.push((lengthwise ? p.x : p.y) * M, run(p) * climb * M);
+      });
       const g = keep(new THREE.BufferGeometry());
       g.setAttribute("position", new THREE.Float32BufferAttribute(at, 3));
       g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
@@ -421,7 +469,7 @@
     lawn.position.set(center.x, 0, center.z);
 
     // Cielo: una bóveda pintada que sigue a la cámara, y la misma bóveda como luz de ambiente y reflejo de los vidrios.
-    const sky = { zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, sunDir: { value: new THREE.Vector3() }, sunColor: { value: new THREE.Color() } };
+    const sky = { zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, sunDir: { value: new THREE.Vector3() }, sunColor: { value: new THREE.Color() }, cover: { value: 0.56 } };
     const skyMaterial = keep(new THREE.ShaderMaterial({ uniforms: sky, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false, fog: false }));
     const dome = new THREE.Mesh(keep(new THREE.SphereGeometry(900, 32, 16)), skyMaterial), around = new THREE.Scene(), pmrem = keep(new THREE.PMREMGenerator(renderer));
     around.add(new THREE.Mesh(dome.geometry, skyMaterial));
@@ -496,14 +544,17 @@
     }));
     const show = keep(new THREE.ShaderMaterial({
       uniforms: { map: { value: null } }, vertexShader: QUAD, depthTest: false, depthWrite: false,
-      fragmentShader: "uniform sampler2D map; varying vec2 vUv; void main() { gl_FragColor = vec4(texture2D(map, vUv).rgb, 1.0);\n  #include <tonemapping_fragment>\n  #include <colorspace_fragment>\n}"
+      // Al pasar a la pantalla, las esquinas se oscurecen apenas, como en la foto de una cámara.
+      fragmentShader: "uniform sampler2D map; varying vec2 vUv; void main() { vec2 q = vUv - 0.5; float v = 1.0 - 0.32 * smoothstep(0.25, 0.75, dot(q, q) * 2.0);\n" +
+        "  gl_FragColor = vec4(texture2D(map, vUv).rgb * v, 1.0);\n  #include <tonemapping_fragment>\n  #include <colorspace_fragment>\n}"
     }));
 
-    let width = 0, height = 0;
+    let width = 0, height = 0, big = null; // big: {w, h} mientras se arma la imagen para descargar en alta
     function resize() {
       const w = container.clientWidth, h = container.clientHeight;
       if (!w || !h) return; // pestaña en segundo plano o panel oculto
-      renderer.setSize(w, h, false);
+      if (big) { renderer.setPixelRatio(1); renderer.setSize(big.w, big.h, false); }
+      else { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(w, h, false); }
       const real = renderer.getDrawingBufferSize(new THREE.Vector2());
       width = real.x; height = real.y;
       if (hdr) { shot.setSize(width, height); sum.setSize(width, height); }
@@ -522,7 +573,7 @@
       '<button type="button" data-r3d="roof" aria-pressed="true" title="Mostrar u ocultar el techo">Techo</button>' +
       '<label title="Terminación de los muros por fuera">Muros <select aria-label="Terminación de los muros por fuera">' + Object.keys(WALLS).map(function (k) { return '<option value="' + k + '">' + WALLS[k][0] + "</option>"; }).join("") + "</select></label>" +
       '<label title="Hora del día: mueve el sol">Hora <input type="range" min="7" max="19" step="0.25" aria-label="Hora del día"><output></output></label>' +
-      '<button type="button" data-r3d="save" title="Guardar la imagen como PNG">Descargar imagen</button>';
+      '<button type="button" data-r3d="save" title="Guardar la imagen en alta resolución, como PNG">Descargar imagen</button>';
     note.className = "v3d-hint";
     container.appendChild(bar); container.appendChild(note);
     const slider = bar.querySelector("input"), clock = bar.querySelector("output"), roofBtn = bar.querySelector('[data-r3d="roof"]'), finish = bar.querySelector("select");
@@ -539,15 +590,38 @@
       sample = 0;
     }
     function save(done) { dom.toBlob(done, "image/png"); }
+    function download(blob) {
+      const a = document.createElement("a"), url = URL.createObjectURL(blob);
+      a.href = url; a.download = "render.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+    /* Imagen para descargar en alta: la misma vista, dibujada de nuevo a 3840 px de lado mayor (2560 en un celular o
+       si la placa no da para más) y afinada con todos sus cuadros. Mientras tanto la cámara queda quieta. */
+    const saveBtn = bar.querySelector('[data-r3d="save"]');
+    function saveBig() {
+      const w = container.clientWidth, h = container.clientHeight, caps = renderer.capabilities;
+      const coarse = window.matchMedia && window.matchMedia("(any-pointer: coarse)").matches;
+      const side = Math.min(coarse ? 2560 : 3840, caps.maxTextureSize, caps.maxRenderbufferSize || caps.maxTextureSize), k = side / Math.max(w, h);
+      big = { w: Math.round(w * k), h: Math.round(h * k) };
+      controls.enabled = false; saveBtn.disabled = true; note.classList.add("is-busy");
+      shot.samples = 0; shot.dispose(); // el suavizado de bordes ya sale de correr la cámara: a este tamaño no hace falta otro
+      resize();
+    }
+    function bigDone() {
+      if (big.saving) return; // la imagen se está guardando: el cuadro siguiente no la pide de nuevo
+      big.saving = true;
+      const done = function () {
+        big = null; controls.enabled = true; saveBtn.disabled = false; note.classList.remove("is-busy");
+        shot.samples = 4; shot.dispose();
+        resize();
+      };
+      dom.toBlob(function (blob) { if (blob) download(blob); done(); }, "image/png");
+    }
     bar.addEventListener("click", function (e) {
       const b = e.target.closest("button[data-r3d]"), name = b && b.getAttribute("data-r3d");
       if (name === "roof") { opts.roof = !opts.roof; sync(); }
-      else if (name === "save") save(function (blob) {
-        const a = document.createElement("a"), url = URL.createObjectURL(blob);
-        a.href = url; a.download = "render.png";
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-      });
+      else if (name === "save") { if (hdr) saveBig(); else save(download); }
       else if (name) view(name);
     });
     slider.addEventListener("input", function () { opts.hour = Number(slider.value); sync(); });
@@ -584,11 +658,11 @@
       state.frame = requestAnimationFrame(tick);
       if (document.hidden || !width) return;
       controls.update();
-      if (sample > SAMPLES) return; // imagen terminada: no se gasta más
+      if (sample > SAMPLES) { if (big) bigDone(); return; } // imagen terminada: no se gasta más
       draw();
       const done = hdr ? Math.min(1, (sample - 1) / SAMPLES) : 1;
       note.hidden = done >= 1;
-      note.textContent = "Afinando la imagen… " + Math.round(done * 100) + " %";
+      note.textContent = (big ? "Preparando la imagen de " + big.w + " × " + big.h + " px… " : "Afinando la imagen… ") + Math.round(done * 100) + " %";
       if (opts.onProgress) opts.onProgress(done);
     })();
     trash.push({ dispose: function () { if (envMap) envMap.dispose(); } });

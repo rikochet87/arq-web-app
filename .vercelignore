@@ -1,3 +1,4 @@
 # No forman parte del sitio publicado
 tools/
 .htaccess
+*.md
