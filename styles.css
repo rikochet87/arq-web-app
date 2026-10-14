@@ -479,6 +479,7 @@ strong, b { font-weight: 500; color: #f0f0f0; }
 .v3d-bar button[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .v3d-bar button:disabled { opacity: .4; pointer-events: none; }
 .v3d-bar input[type="range"] { width: 7rem; accent-color: var(--accent); }
+.v3d-bar select { height: 100%; padding: 0 .2rem; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--ink); background: var(--field); border: 0; }
 .v3d-pad { position: absolute; z-index: 2; right: .8rem; bottom: .8rem; display: grid; grid-template-columns: repeat(3, 46px); grid-auto-rows: 46px; gap: 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .v3d-pad button { color: #bdbdbd; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); touch-action: none; }
 .v3d-pad button:active { background: var(--raised); color: var(--accent); }
