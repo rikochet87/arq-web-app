@@ -74,6 +74,6 @@ node tools/build.js    # regenerate the calculator pages
 
 <div align="center">
 
-**Matías Rosello** · [GitHub](https://github.com/rikochet87) · rosellomatias87@gmail.com
+**Matías Roselló** · [GitHub](https://github.com/rikochet87) · rosellomatias87@gmail.com
 
 </div>
