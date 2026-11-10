@@ -45,6 +45,8 @@ export interface ScheduleRoom {
 export interface Schedules {
   openings: ScheduleOpening[];
   rooms: ScheduleRoom[];
+  /** Código de cada abertura del plano (P1, V2…), por id. */
+  codeOf: Record<string, string>;
 }
 export interface ScheduleTable {
   cols: string[];

@@ -101,3 +101,7 @@ export const openingById = (id: Id) => st.plan.openings.find((o) => o.id === id)
 export const itemById = (id: Id) => st.plan.items.find((it) => it.id === id);
 export const surfaceById = (id: Id) => st.plan.surfaces.find((sf) => sf.id === id);
 export const noteById = (id: Id) => st.plan.notes.find((nt) => nt.id === id);
+/** El ambiente que contiene el punto (del último cómputo). */
+export const roomAt = (p: Point) => (st.model as Model).rooms.find((r) => P.inside(r.points, p));
+/** Ids de los muros elegidos (uno o varios). */
+export const pickedWalls = (): Id[] => !st.sel ? [] : st.sel.type === "wall" ? [st.sel.id as Id] : st.sel.type === "walls" ? st.sel.ids as Id[] : [];
