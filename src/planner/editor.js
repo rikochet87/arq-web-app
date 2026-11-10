@@ -2,10 +2,10 @@
    símbolos están en lib/plan.ts; las constantes, las bibliotecas, las planillas y el presupuesto, en los otros módulos de
    src/planner/. */
 import * as G from "./geometry.ts";
-import { GRID, HANDOFF, HINTS, KEYS, OPTIONS, SHELF, SHELF_MAX, STORE, UNTITLED, VIEW_TEMPLATES } from "./constants.ts";
-import { $, $$, escHTML } from "./dom.ts";
+import { GRID, KEYS, OPTIONS, SHELF_MAX, UNTITLED } from "./constants.ts";
+import { $, $$ } from "./dom.ts";
 import { download, fileName as planFileName } from "./files.ts";
-import { itemLibraryHTML, libraryHTML } from "./library.ts";
+import { libraryHTML } from "./library.ts";
 import { openBudget } from "./budget.ts";
 import { openSchedules } from "./schedules.ts";
 import { itemById, layers, nextId, noteById, openingById, pickedWalls, roomAt, selected, st, surfaceById, wallById, wallsSel } from "./state.ts";
@@ -15,6 +15,12 @@ import { defaultType, ensureTypes, everyWall, renderTypes, typeInput } from "./w
 import { applySketch, cancelSketch, detectSketch, readSketch } from "./sketch.ts";
 import { exportDrawing, exportDxf, exportJson, openPlanFile, openRefImage } from "./io.ts";
 import { ops } from "./context.ts";
+import { bindUI, ui } from "./ui.ts";
+import { loadShelf, normalize, pushHistory, restore, save, saveShelf, snapshot, start } from "./store.ts";
+import { addOpening, addRoomPoint, addWallPoint, addWalls, center, changeOpening, commit, newItem, removeSelection, renderLibrary, setColor, setTool, tagRoom } from "./edit.ts";
+import { renderVariants, showLevel, showVariant, stashLevel, stashVariant, variantCount } from "./levels.ts";
+import { applyViewTemplate, readSettings, syncSettings, syncTemplates } from "./settings.ts";
+import { present, showView } from "./views.ts";
 import { clampT, fit, hitItem, hitNote, hitOpening, hitSurface, hitWall, itemPoint, movePoints, px, snap, toWorld } from "./viewport.ts";
 
 const { dist, same, copy, round, n1, pt1, project, straight, simplify } = G;
@@ -25,12 +31,8 @@ const E = brand.engine, P = brand.plan, D = brand.data;
 const NOTES = P.NOTE_KINDS; // herramientas de anotación: trazo, línea, flecha, formas, nube y nota de texto
 
 function init(root) {
-  const svg = $("[data-canvas]", root), hint = $("[data-hint]", root), inspector = $("[data-inspector]", root);
-  const settings = $("[data-settings]", root), title = $("[data-title]", root);
-  const phaseView = $("[data-phase-view]", root);
-  const compareBox = $("[data-compare-box]", root), compareOut = $("[data-compare]", root);
-  const refBox = $("[data-ref-box]", root), stage3d = $("[data-view3d]", root), note3d = $("[data-view3d-msg]", root);
-  const coords = $("[data-coords]", root);
+  bindUI(root);
+  const { svg, hint, inspector, settings, title, phaseView, stage3d, coords } = ui;
   bindRender(root);
   st.canvas = svg;
   st.view = { x: 0, y: 0, w: 1000, h: 1000 };
@@ -47,163 +49,8 @@ function init(root) {
   st.stamp = null; // mueble de la biblioteca personal que se está colocando; si no, se coloca el de la biblioteca general ("pick")
   st.presenting = false; // modo presentación: solo el plano, para mostrarlo y marcarlo frente al cliente
 
-  // ---------- Estado ----------
-  function load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORE));
-      return normalize(saved);
-    } catch (e) { return null; }
-  }
-  // Acepta planos guardados por versiones anteriores y archivos abiertos desde el disco.
-  function normalize(saved) {
-    if (!saved || !Array.isArray(saved.walls) || !Array.isArray(saved.openings)) return null;
-    saved.labels = saved.labels || [];
-    saved.wires = saved.wires || [];
-    saved.surfaces = saved.surfaces || [];
-    saved.items = (saved.items || []).filter(function (it) { return D.items[it.type]; });
-    saved.openings.forEach(function (o) { if (!D.openings[o.type]) o.type = o.kind === "window" ? "v120" : "p80"; });
-    saved.notes = cleanNotes(saved.notes);
-    saved.levels = cleanLevels(saved.levels);
-    saved.level = Math.min(saved.level || 0, Math.max(0, saved.levels.length - 1));
-    saved.variants = (Array.isArray(saved.variants) ? saved.variants : []).filter(function (v) { return v && Array.isArray(v.levels) && v.levels.length; }).slice(0, OPTIONS.length)
-      .map(function (v) { const levels = cleanLevels(v.levels); return { levels: levels, level: Math.min(v.level || 0, levels.length - 1), section: v.section || null }; });
-    saved.variant = Math.min(saved.variant || 0, Math.max(0, saved.variants.length - 1));
-    P.migrateWalls(saved); // ladrillo por muro (planos viejos) → tipos de muro
-    return saved;
-  }
-  // Biblioteca personal: solo entradas de un tipo conocido y con medidas.
-  function loadShelf() {
-    try {
-      const list = JSON.parse(localStorage.getItem(SHELF));
-      return (Array.isArray(list) ? list : []).filter((o) => o && D.items[o.type] && o.w >= 5 && o.d >= 5 && /^[a-z0-9]+$/.test(String(o.id))).slice(0, SHELF_MAX)
-        .map((o) => ({ id: String(o.id), type: o.type, name: String(o.name || D.items[o.type].label).slice(0, 40), w: Math.round(o.w), d: Math.round(o.d), tall: o.tall >= 5 ? Math.round(o.tall) : undefined, shape: o.shape === "round" ? "round" : undefined }));
-    } catch (e) { return []; }
-  }
-  function saveShelf() { try { localStorage.setItem(SHELF, JSON.stringify(st.shelf)); } catch (e) { /* sin almacenamiento */ } }
-  // Vuelve a armar la biblioteca de equipamiento sin plegar los grupos que estaban abiertos.
-  function renderLibrary() {
-    const box = $("[data-items]", root), open = $$("details[open]", box).map((d) => d.getAttribute("data-group"));
-    const first = !box.firstChild;
-    box.innerHTML = itemLibraryHTML(st.shelf);
-    if (!first) $$("details", box).forEach(function (d) { d.open = open.indexOf(d.getAttribute("data-group")) >= 0; });
-    syncPicks();
-  }
-  function syncPicks() {
-    $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === st.pick)));
-    $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(!st.stamp && b.getAttribute("data-pick-item") === st.pick)));
-    $$("[data-pick-shelf]", root).forEach((b) => b.setAttribute("aria-pressed", String(!!st.stamp && b.getAttribute("data-pick-shelf") === st.stamp.id)));
-  }
-  // Objeto nuevo: el de la biblioteca general o, si se eligió uno propio, con sus medidas, nombre y forma.
-  function newItem(id, q) {
-    const it = P.item(id, st.pick, q.x, q.y, 0);
-    if (!st.stamp) return it;
-    it.w = st.stamp.w; it.d = st.stamp.d;
-    if (D.items[it.type].custom) { it.name = st.stamp.name; if (st.stamp.shape) it.shape = st.stamp.shape; }
-    if (st.stamp.tall) it.tall = st.stamp.tall;
-    return it;
-  }
-  // Anotaciones bien formadas: un tipo conocido y puntos con números.
-  function cleanNotes(list) {
-    return (Array.isArray(list) ? list : []).filter(function (nt) {
-      return nt && NOTES[nt.kind] && Array.isArray(nt.pts) && nt.pts.length >= (nt.kind === "text" ? 1 : 2) && nt.pts.every(function (q) { return q && isFinite(q.x) && isFinite(q.y); });
-    });
-  }
-  function cleanLevels(list) {
-    return (list || []).map(function (lv, i) {
-      const level = { name: lv.name || P.LEVEL_NAMES[i] };
-      P.LEVEL_FIELDS.forEach(function (f) { level[f] = lv[f] || []; });
-      level.items = level.items.filter(function (it) { return D.items[it.type]; });
-      level.notes = cleanNotes(level.notes);
-      return level;
-    });
-  }
-  // Arranca con el plano guardado o vacío. Con #ejemplo en la dirección carga la casa de muestra y con
-  // #importado el plano que se subió en la portada (el plano guardado, si había, queda a un "Deshacer" de distancia).
-  function start() {
-    const saved = load();
-    let fresh = null;
-    if (location.hash === "#ejemplo") fresh = P.sample();
-    else if (location.hash === "#importado") {
-      try { fresh = normalize(JSON.parse(localStorage.getItem(HANDOFF))); localStorage.removeItem(HANDOFF); } catch (e) { /* sin almacenamiento */ }
-    }
-    if (!fresh) return saved || P.empty();
-    if (saved && saved.walls.length) st.history.push(JSON.stringify(Object.assign({}, saved, { ref: undefined })));
-    try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* file:// */ }
-    return fresh;
-  }
-  // La imagen de referencia pesa mucho: no entra en el historial y, si no cabe, tampoco en el guardado.
-  const snapshot = () => JSON.stringify(Object.assign({}, st.plan, { ref: undefined }));
-  function save() {
-    try { localStorage.setItem(STORE, JSON.stringify(st.plan)); }
-    catch (e) { try { localStorage.setItem(STORE, snapshot()); } catch (err) { /* sin almacenamiento */ } }
-  }
-  function pushHistory() { st.history.push(snapshot()); if (st.history.length > 60) st.history.shift(); st.future.length = 0; }
-  function restore(from, to) {
-    if (!from.length) return;
-    const ref = st.plan.ref;
-    to.push(snapshot());
-    st.plan = JSON.parse(from.pop());
-    st.plan.ref = ref;
-    st.chain = null;
-    commit(null);
-    syncSettings();
-  }
-
-  // Plantas: los campos de P.LEVEL_FIELDS son siempre los de la planta activa; las demás esperan en plan.levels.
-  function stashLevel() {
-    if (!st.plan.levels || !st.plan.levels.length) st.plan.levels = [{ name: P.LEVEL_NAMES[0] }];
-    st.plan.level = Math.min(st.plan.level || 0, st.plan.levels.length - 1);
-    const level = { name: st.plan.levels[st.plan.level].name };
-    P.LEVEL_FIELDS.forEach(function (f) { level[f] = st.plan[f] || []; });
-    st.plan.levels[st.plan.level] = level;
-  }
-  function loadLevel(index) {
-    const level = st.plan.levels[index];
-    st.plan.level = index;
-    P.LEVEL_FIELDS.forEach(function (f) { st.plan[f] = level[f] || []; });
-  }
-  function showLevel(index) {
-    loadLevel(index);
-    st.chain = null;
-    fit();
-    commit(null);
-    syncSettings();
-    setTool("select");
-  }
-  /* Opciones de diseño (variantes): igual que las plantas, la opción activa vive en los campos de trabajo del plano
-     y las demás esperan en plan.variants. Comparten los ajustes de obra, las capas y los datos de carátula. */
-  const variantCount = () => Math.max(1, (st.plan.variants || []).length);
-  function stashVariant() {
-    stashLevel();
-    if (!st.plan.variants || !st.plan.variants.length) st.plan.variants = [{}];
-    st.plan.variant = Math.min(st.plan.variant || 0, st.plan.variants.length - 1);
-    st.plan.variants[st.plan.variant] = { levels: JSON.parse(JSON.stringify(st.plan.levels)), level: st.plan.level, section: st.plan.section || null };
-  }
-  function showVariant(index) {
-    const v = st.plan.variants[index];
-    st.plan.variant = index;
-    st.plan.levels = JSON.parse(JSON.stringify(v.levels));
-    st.plan.section = v.section || null;
-    showLevel(Math.min(v.level || 0, st.plan.levels.length - 1));
-  }
-
-
-  // Guarda, cambia la selección y redibuja todo.
-  function commit(selection) {
-    st.plan.walls = st.plan.walls.filter((w) => dist(w.a, w.b) >= GRID);
-    st.plan.openings = st.plan.openings.filter((o) => wallById(o.wall));
-    st.plan.items = st.plan.items || [];
-    st.plan.surfaces = st.plan.surfaces || [];
-    st.plan.notes = st.plan.notes || [];
-    st.plan.wires = (st.plan.wires || []).filter((w) => itemById(w.a) && itemById(w.b)); // un cable sin una de sus bocas no existe
-    st.sel = selection;
-    save();
-    render();
-    if (!selected()) st.sel = null;
-    renderInspector();
-    renderVariants();
-    renderTypes();
-  }
+  // ---------- Estado, historial y arranque: src/planner/store.ts · Plantas y opciones: src/planner/levels.ts ----------
+  // ---------- Edición: src/planner/edit.ts · Ajustes: src/planner/settings.ts · 3D y presentación: src/planner/views.ts ----------
 
   // Operaciones que usan los demás módulos del diseñador (src/planner/context.ts).
   Object.assign(ops, { root: root, hint: hint, title: title, pushHistory: pushHistory, commit: commit, save: save, render: render, setTool: setTool,
@@ -218,124 +65,6 @@ function init(root) {
     render();
   }
 
-  // ---------- Dibujo: src/planner/render.ts ----------
-
-  // ---------- Tipos de muro: src/planner/walltypes.ts · Inspector: src/planner/inspector.ts ----------
-
-  function setTool(name, type, own) {
-    st.tool = name; st.pick = type || null; st.stamp = own || null; st.chain = null; st.hover = null; st.ghost = null; st.typed = ""; st.measure = null; st.arcEnd = null; st.wireFrom = null;
-    if (name !== "select" && name !== "pan") { st.sel = null; st.multi = false; } // al empezar a dibujar se suelta la selección
-    $$("[data-tool]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-tool") === name)));
-    $('[data-action="multi"]', root).setAttribute("aria-pressed", String(st.multi));
-    syncPicks();
-    hint.textContent = HINTS[name === "select" && st.multi ? "multi" : name];
-    svg.setAttribute("data-tool", NOTES[name] ? "note" : name);
-    if (NOTES[name] && !layers().notes) { st.plan.layers = Object.assign(layers(), { notes: true }); save(); syncSettings(); } // no se anota sobre una capa oculta
-    render();
-    renderInspector();
-  }
-
-  // ---------- Acciones ----------
-  function removeSelection() {
-    if (!st.sel || st.sel.type === "room") return;
-    pushHistory();
-    if (st.sel.type === "wall" || st.sel.type === "walls") { const gone = pickedWalls(); st.plan.walls = st.plan.walls.filter((w) => gone.indexOf(w.id) < 0); }
-    else if (st.sel.type === "item") st.plan.items = st.plan.items.filter((it) => it.id !== st.sel.id);
-    else if (st.sel.type === "surface") st.plan.surfaces = st.plan.surfaces.filter((sf) => sf.id !== st.sel.id);
-    else if (st.sel.type === "note") st.plan.notes = st.plan.notes.filter((nt) => nt.id !== st.sel.id);
-    else st.plan.openings = st.plan.openings.filter((o) => o.id !== st.sel.id);
-    commit(null);
-  }
-  // No agrega una pared que ya está dibujada encima de otra (pasa al dibujar ambientes pegados).
-  function addWalls(list) {
-    const onWall = (w, p) => { const h = project(w, p); return h.d < 0.5 && h.raw > -1e-6 && h.raw < 1 + 1e-6; };
-    const fresh = list.filter((s) => dist(s[0], s[1]) >= GRID && !st.plan.walls.some((w) => onWall(w, s[0]) && onWall(w, s[1])));
-    if (!fresh.length) return;
-    pushHistory();
-    fresh.forEach(function (s) { st.plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, st.nextType ? { type: st.nextType } : {}, st.nextPhase ? { phase: st.nextPhase } : {})); });
-  }
-  function addWallPoint(p) {
-    st.typed = "";
-    if (!st.chain) { st.chain = p; render(); return; }
-    if (dist(st.chain, p) < GRID) return;
-    const closes = st.plan.walls.some((w) => same(w.a, p) || same(w.b, p));
-    addWalls([[st.chain, p]]);
-    st.chain = closes ? null : p; // al llegar a otra pared la cadena se corta sola
-    commit(null);
-  }
-  function addRoomPoint(p) {
-    if (!st.chain) { st.chain = p; render(); return; }
-    if (Math.abs(p.x - st.chain.x) < GRID || Math.abs(p.y - st.chain.y) < GRID) return;
-    const a = st.chain, b = { x: p.x, y: a.y }, c = p, d = { x: a.x, y: p.y };
-    addWalls([[a, b], [b, c], [c, d], [d, a]]);
-    st.chain = null;
-    commit(null);
-  }
-  function addOpening(hit, type) {
-    pushHistory();
-    const o = P.opening(nextId(), hit.wall.id, hit.t, type);
-    o.t = clampT(o, o.t);
-    st.plan.openings.push(o);
-    st.ghost = null;
-    commit({ type: "opening", id: o.id });
-  }
-  function changeOpening(change) {
-    const o = openingById(st.sel.id);
-    pushHistory();
-    change(o);
-    commit(st.sel);
-  }
-  const center = () => ({ x: st.view.x + st.view.w / 2, y: st.view.y + st.view.h / 2 });
-  // Nombre, piso o color de un ambiente: se guardan en una etiqueta ubicada dentro de él.
-  function tagRoom(field, value) {
-    const room = roomAt(st.sel), old = (st.plan.labels || []).find((l) => P.inside(room.points, l)) || {};
-    const tag = { x: st.sel.x, y: st.sel.y, name: old.name || "", floor: old.floor, color: old.color };
-    tag[field] = value;
-    pushHistory();
-    st.plan.labels = (st.plan.labels || []).filter((l) => !P.inside(room.points, l));
-    st.plan.labels.push(tag);
-    commit(st.sel);
-  }
-  // Un toque en la paleta: pinta la anotación o el ambiente elegido, o fija el color de las anotaciones que vienen.
-  function setColor(color) {
-    if (st.sel && st.sel.type === "note") { pushHistory(); noteById(st.sel.id).color = color; commit(st.sel); }
-    else if (st.sel && st.sel.type === "room") tagRoom("color", color);
-    else { st.nextNote.color = color; renderInspector(); }
-  }
-
-  // ---------- Opciones de diseño: selector y tabla que las compara ----------
-  function renderVariants() {
-    const list = st.plan.variants || [], many = list.length > 1, current = Math.min(st.plan.variant || 0, Math.max(0, list.length - 1));
-    $$("[data-variant]", root).forEach(function (el) {
-      el.hidden = !many;
-      el.innerHTML = list.map((v, i) => '<option value="' + i + '"' + (i === current ? " selected" : "") + ">Opción " + OPTIONS[i] + "</option>").join("");
-    });
-    compareBox.hidden = !many;
-    if (!many) return;
-    const cols = list.map(function (v, i) {
-      if (i === current) return st.model.main;
-      const lv = v.levels[Math.min(v.level || 0, v.levels.length - 1)], other = Object.assign({}, st.plan, { levels: v.levels, level: v.level || 0, section: v.section });
-      P.LEVEL_FIELDS.forEach(function (f) { other[f] = lv[f] || []; });
-      return P.compute(other).main;
-    });
-    compareOut.innerHTML = '<table class="compare"><thead><tr><th></th>' + list.map((v, i) => "<th" + (i === current ? ' class="is-on"' : "") + ">" + OPTIONS[i] + "</th>").join("") + "</tr></thead><tbody>" +
-      cols[0].map(function (m, r) {
-        return "<tr><th>" + escHTML(m.label) + " <small>" + escHTML(m.unit) + "</small></th>" + cols.map((c, i) => "<td" + (i === current ? ' class="is-on"' : "") + ">" + escHTML(c[r].value) + "</td>").join("") + "</tr>";
-      }).join("") + "</tbody></table>";
-  }
-
-  // ---------- Modo presentación ----------
-  function present(on) {
-    st.presenting = on;
-    root.classList.toggle("is-presenting", on);
-    document.documentElement.classList.toggle("is-presenting", on);
-    try {
-      if (on && root.requestFullscreen) root.requestFullscreen().catch(function () { /* sin pantalla completa: igual ocupa toda la ventana */ });
-      else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
-    } catch (e) { /* navegador sin pantalla completa */ }
-    setTool(on ? "pan" : "select");
-    setTimeout(function () { fit(); render(); }, 120); // el lienzo ya tomó su tamaño nuevo
-  }
   document.addEventListener("fullscreenchange", function () { if (st.presenting && !document.fullscreenElement) present(false); });
 
   // ---------- Archivos: src/planner/io.ts ----------
@@ -532,28 +261,6 @@ function init(root) {
 
   // ---------- Boceto a plano: src/planner/sketch.ts ----------
 
-  // ---------- Vista 3D ----------
-  function showView(mode) {
-    const on = mode === "3d";
-    $$("[data-view]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-view") === mode)));
-    stage3d.hidden = !on;
-    if (brand.view3d) brand.view3d.close();
-    if (!on) { render(); return; }
-    note3d.hidden = false;
-    if (!st.plan.walls.length) { note3d.textContent = "Dibujá al menos una pared para verla en 3D."; return; }
-    if (!brand.view3d) { note3d.textContent = "No se pudo cargar la vista 3D. Recargá la página."; return; }
-    note3d.textContent = "Preparando la vista 3D…";
-    brand.view3d.open(stage3d, st.plan, { roof: layers().roof }).then(function (info) {
-      note3d.hidden = true;
-      stage3d.setAttribute("data-meshes", info.meshes);
-    }, function (e) {
-      console.warn("[3d]", e);
-      // Sin WebGL no hay nada que hacer; cualquier otra falla suele ser que no se pudo descargar el motor 3D.
-      note3d.textContent = /WebGL/.test(e && e.message)
-        ? "Este navegador no puede mostrar la vista 3D. El plano y el cómputo siguen funcionando."
-        : "No se pudo cargar la vista 3D. Revisá la conexión, recargá la página y probá de nuevo. El plano y el cómputo siguen funcionando.";
-    });
-  }
 
   // ---------- Eventos ----------
   function touch() { if (!st.drag.dirty) { pushHistory(); st.drag.dirty = true; } }
@@ -938,64 +645,10 @@ function init(root) {
     commit(st.sel);
   });
 
-  // Cada ajuste numérico: [factor a cm, mínimo, máximo] en la unidad del formulario.
-  const LIMITS = { height: [100, 2, 6], slab: [1, 0, 50], screed: [1, 0, 10], coats: [1, 1, 5] };
-  function syncSettings() {
-    const s = Object.assign({}, P.DEFAULTS, st.plan.settings), show = layers();
-    ["ext", "int"].forEach(function (cls) { s[cls] = defaultType(cls).id; });
-    renderTypes();
-    $$("input, select", settings).forEach(function (el) {
-      if (el.type === "checkbox") el.checked = !!s[el.name];
-      else if (LIMITS[el.name]) el.value = E.fmt(s[el.name] / LIMITS[el.name][0], 2);
-      else el.value = s[el.name];
-    });
-    $$("[data-layer]", root).forEach(function (el) { el.checked = show[el.getAttribute("data-layer")]; });
-    if (phaseView) phaseView.value = st.plan.phaseView || "obra";
-    syncTemplates();
-    title.value = st.plan.name || UNTITLED;
-    $("[data-level]", root).innerHTML = P.levelsOf(st.plan).map((level, i) => '<option value="' + i + '"' + (i === (st.plan.level || 0) ? " selected" : "") + ">" +
-      escHTML(level.name) + "</option>").join("");
-    $('[data-action="snap"]', root).setAttribute("aria-pressed", String(st.plan.snap !== false));
-    if (st.model) renderVariants();
-    refBox.hidden = !(st.plan.ref && st.plan.ref.src);
-    if (st.plan.ref) {
-      $('[data-ref="w"]', root).value = E.fmt(st.plan.ref.w / 100, 2);
-      $('[data-ref="opacity"]', root).value = st.plan.ref.opacity;
-    }
-  }
-  function readSettings() {
-    const s = Object.assign({}, P.DEFAULTS, st.plan.settings);
-    $$("input, select", settings).forEach(function (el) {
-      if (el.type === "checkbox") { s[el.name] = el.checked; return; }
-      if (!LIMITS[el.name]) { s[el.name] = el.value; return; }
-      const v = E.parseNum(el.value), lim = LIMITS[el.name], ok = v >= lim[1] && v <= lim[2];
-      el.setAttribute("aria-invalid", String(!ok));
-      if (ok) s[el.name] = v * lim[0];
-    });
-    st.plan.settings = s;
-    save();
-    render();
-    renderVariants();
-  }
   settings.addEventListener("input", readSettings);
   settings.addEventListener("change", readSettings);
   settings.addEventListener("submit", function (e) { e.preventDefault(); });
   if (phaseView) phaseView.addEventListener("change", function () { st.plan.phaseView = phaseView.value; delete st.plan.viewTemplate; save(); syncTemplates(); render(); });
-  function syncTemplates() {
-    $$("[data-view-tpl]", root).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view-tpl") === st.plan.viewTemplate)); });
-  }
-  function applyViewTemplate(key) {
-    const t = VIEW_TEMPLATES[key];
-    if (!t) return;
-    st.plan.layers = Object.assign(layers(), t.layers);
-    st.plan.phaseView = t.phaseView;
-    st.plan.viewTemplate = key;
-    if (brand.sheets) st.plan.doc = brand.sheets.applyTemplate(st.plan.doc || {}, key);
-    save();
-    syncSettings();
-    render();
-    if (!stage3d.hidden) showView("3d");
-  }
   const typesBox = $("[data-types]", root);
   if (typesBox) typesBox.addEventListener("change", typeInput);
   root.addEventListener("change", function (e) {
