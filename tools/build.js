@@ -1,6 +1,6 @@
 /* Generador del sitio: arma una página HTML por calculadora a partir de la lista PAGES.
    Uso: node tools/build.js
-   Para sumar una calculadora: agregá su función en lib/calc.js y una entrada en PAGES. */
+   Para sumar una calculadora: agregá su función en lib/calc.ts y una entrada en PAGES. */
 "use strict";
 
 const fs = require("fs");
@@ -18,7 +18,7 @@ const OWNER = {
 const LEGAL_DATE = "13 de octubre de 2026"; // última actualización de las páginas legales
 
 globalThis.window = {};
-for (const lib of ["manifest.js", "calc.js", "plan.ts"]) require(path.join(ROOT, "lib", lib)); // plan.ts: Node 22.18 o posterior
+for (const lib of ["manifest.ts", "calc.ts", "plan.ts"]) require(path.join(ROOT, "lib", lib)); // TypeScript: Node 22.18 o posterior
 const BRAND = globalThis.window.__BRAND__;
 const DATA = BRAND.data;
 

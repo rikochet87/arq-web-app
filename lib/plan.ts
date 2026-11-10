@@ -14,6 +14,8 @@
 
 import type { Id, Item, LevelContent, LevelData, Note, Opening, Phase, Plan, Point, Section, Settings, Wall, WallFace, WallType } from "../src/types/plan";
 import type { ResultSection, Row } from "../src/types/brand";
+import type { DrawOp, ItemDef, OpeningDef } from "../src/types/data";
+
 
 type Dict<T> = Record<string, T>;
 /** Clase de un muro: con ambientes de los dos lados es interior; si no, exterior. */
@@ -50,12 +52,13 @@ const typeOf = (o: { type?: string; kind?: string }) => D.openings[o.type as str
 const FACE_LIMIT = 5; // cm por capa
 const STD = { ext: { azotado: 0.5, grueso: 1.5, fino: true }, int: { azotado: 0, grueso: 1.5, fino: true } };
 const layerCm = (v: unknown) => { const x = Number(v); return isFinite(x) ? Math.round(Math.max(0, Math.min(FACE_LIMIT, x)) * 10) / 10 : 0; };
-// any: datos sin validar, leídos de un archivo
-const cleanFace = (f: any, std: WallFace): WallFace => (f && typeof f === "object" ? { azotado: layerCm(f.azotado), grueso: layerCm(f.grueso), fino: !!f.fino } : Object.assign({}, std));
-// any: datos sin validar, leídos de un archivo
-function cleanType(t: any): WallType | null {
+// f y t llegan sin validar (de un archivo o del almacenamiento del navegador): se revisa cada campo.
+type Raw = Record<string, unknown>;
+const cleanFace = (f: unknown, std: WallFace): WallFace => (f && typeof f === "object" ? { azotado: layerCm((f as Raw).azotado), grueso: layerCm((f as Raw).grueso), fino: !!(f as Raw).fino } : Object.assign({}, std));
+function cleanType(raw: unknown): WallType | null {
+  const t = raw as Raw;
   if (!t || typeof t !== "object" || !t.id) return null;
-  const brick = D.bricks[t.brick] ? t.brick : "hueco8";
+  const brick = D.bricks[t.brick as string] ? t.brick as string : "hueco8";
   return { id: String(t.id).slice(0, 40), name: String(t.name || D.bricks[brick].label).slice(0, 60), brick: brick, ext: cleanFace(t.ext, STD.ext), int: cleanFace(t.int, STD.int) };
 }
 const faceThick = (f: WallFace): number => f.azotado + f.grueso + (f.fino ? D.finishes.fineThick : 0);
@@ -760,8 +763,7 @@ function lineSVG(a: Point, b: Point, cls: string, width?: number, extra?: string
 
 /* Símbolo de una abertura en planta. p0→p1 es el vano sobre el eje del muro, k = cm por píxel.
    o.side elige hacia qué lado del muro abre y o.hinge de qué extremo cuelga la hoja. */
-// any: def: entrada de data.openings (lib/manifest.js, sin tipar todavía)
-function symbolSVG(def: any, p0: Point, p1: Point, thick: number, k: number, o: { side?: boolean; hinge?: boolean }, cls: string): string {
+function symbolSVG(def: OpeningDef, p0: Point, p1: Point, thick: number, k: number, o: { side?: boolean; hinge?: boolean }, cls: string): string {
   const W = dist(p0, p1), dx = (p1.x - p0.x) / W, dy = (p1.y - p0.y) / W, s = o.side ? -1 : 1;
   const nx = -dy * s, ny = dx * s;
   const off = (along: number, across: number): Point => ({ x: p0.x + dx * along + nx * across, y: p0.y + dy * along + ny * across });
@@ -797,10 +799,7 @@ function openingSVG(wall: Wall, o: Opening, thick: number, k: number, cls: strin
 }
 
 // Primitivas que dibujan un objeto: las de la biblioteca o, en un mueble a medida, su forma (rectangular o redonda).
-/** Primitiva de dibujo de un objeto, en fracciones de su ancho y fondo: rectángulo, elipse o línea. */
-type DrawOp = [string, number, number, number, number];
-// any: def: entrada de data.items (lib/manifest.js, sin tipar todavía)
-function itemDraw(it: Item, def: any): DrawOp[] {
+function itemDraw(it: Item, def: ItemDef): DrawOp[] {
   if (def.custom) return it.shape === "round" ? [["e", 0.5, 0.5, 0.5, 0.5]] : [["r", 0, 0, 1, 1]];
   return def.draw || [["r", 0, 0, 1, 1]];
 }
@@ -1134,8 +1133,12 @@ function footprintRoof(plan: Plan, r: RoofShape): RoofPoly[] | null {
 }
 /* Triángulos de una cara del techo, como lista de sus puntos de a tres. Usa THREE.ShapeUtils (lo recibe en THREE,
    así este archivo sigue sin depender del motor): la cara puede ser cóncava y tener agujeros, y un abanico no alcanza. */
-// any: THREE: el motor 3D, que este archivo recibe sin depender de él
-function roofTriangles(poly: RoofPoly, THREE: any): Point3[] {
+/** Lo que roofTriangles usa del motor 3D: este archivo lo recibe sin depender de three.js. */
+export interface Triangulator {
+  Vector2: new (x: number, y: number) => unknown;
+  ShapeUtils: { triangulateShape(contour: unknown[], holes: unknown[][]): number[][] };
+}
+function roofTriangles(poly: RoofPoly, THREE: Triangulator): Point3[] {
   const all = poly.points.concat(...(poly.holes || [])), out: Point3[] = [];
   if (!poly.holes && poly.points.length <= 4 && poly.kind === "ext") { // cerramiento: un cuadrilátero convexo
     for (let i = 1; i < poly.points.length - 1; i++) out.push(poly.points[0], poly.points[i], poly.points[i + 1]);

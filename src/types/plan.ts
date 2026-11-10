@@ -1,5 +1,5 @@
 /* Tipos del modelo del plano, tal como lo guarda hoy el diseñador (localStorage "calcuobra.plano.v1" y los archivos
-   exportados). Describen los datos existentes; no cambian nada. Son la base para migrar lib/plan.js y planner.js a
+   exportados). Describen los datos existentes; no cambian nada. Son la base para migrar planner.js y los demás scripts a
    TypeScript y, más adelante, para el modelo BIM (identificadores estables, propiedades por elemento, IFC).
 
    Unidades: todas las medidas en cm. Coordenadas en planta: x hacia la derecha, y hacia abajo (como el SVG).
@@ -31,7 +31,7 @@ export interface WallFace {
 export interface WallType {
   id: string;
   name: string;
-  /** Clave de ladrillo en data.bricks (lib/manifest.js). */
+  /** Clave de ladrillo en data.bricks (lib/manifest.ts). */
   brick: string;
   /** Cara exterior. */
   ext: WallFace;
@@ -154,7 +154,7 @@ export interface Note {
 
 /* ---------- Plantas ---------- */
 
-/** Lo que es propio de cada planta (P.LEVEL_FIELDS en lib/plan.js). */
+/** Lo que es propio de cada planta (P.LEVEL_FIELDS en lib/plan.ts). */
 export interface LevelContent {
   walls: Wall[];
   openings: Opening[];
