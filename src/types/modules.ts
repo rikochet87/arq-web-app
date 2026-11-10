@@ -119,3 +119,50 @@ export interface ApuModule {
   /** Pasa el presupuesto del plano a la página de presupuesto; devuelve los precios que suma. */
   fromPlan(store: ApuStore, planBudget: BudgetResult): Record<string, number>;
 }
+
+/* ---------- lib/sketch.js: boceto a mano → paredes y aberturas ---------- */
+export interface SketchSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+/** Abertura detectada en el boceto, en píxeles de la imagen. Las puertas traen bisagra (hx, hy) y punta de la hoja (tx, ty). */
+export interface SketchOpening {
+  kind: "door" | "window" | "open";
+  x: number;
+  y: number;
+  w: number;
+  horizontal: boolean;
+  hx: number;
+  hy: number;
+  tx: number;
+  ty: number;
+}
+export interface SketchBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+export interface SketchModule {
+  vectorize(gray: Uint8Array, w: number, h: number, detail: number): { segments: SketchSegment[]; openings: SketchOpening[]; angle: number; box?: SketchBox };
+}
+
+/* ---------- lib/dxfin.js: lectura de DXF de AutoCAD ---------- */
+export interface CadRegion {
+  kind: string;
+  box: unknown;
+}
+export interface CadModule {
+  read(text: string): unknown;
+  sheets?(drawing: unknown): { planta: number; regions: CadRegion[]; unit?: unknown };
+  levelsIn(drawing: unknown, box: unknown): { v: number }[];
+  toPlan(drawing: unknown, opts: unknown): { plan: unknown; stats: { walls: number; doors: number; windows: number; opens: number } };
+}
+
+/* ---------- lib/dxf.js: exportación a DXF ---------- */
+export interface DxfModule {
+  build(plan: Plan): string;
+  layers: string[];
+}

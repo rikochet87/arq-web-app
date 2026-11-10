@@ -1,6 +1,7 @@
-/* Lo que el editor (src/planner/editor.js) les presta a los módulos del diseñador: el plano y la selección
-   de ese momento, los elementos de la pantalla que usan y las operaciones que guardan y redibujan. */
-import type { Plan } from "../types/plan";
+/* Operaciones del editor (src/planner/editor.js) que usan los demás módulos del diseñador: guardar, redibujar,
+   cambiar de herramienta… El editor las registra al arrancar (init); el estado está en state.ts. */
+import type { Plan, Point } from "../types/plan";
+import type { ShelfItem } from "./library";
 
 /** Lo elegido en el plano: un muro, varios, una abertura, un objeto, una superficie, una anotación o un ambiente. */
 export interface Selection {
@@ -8,10 +9,9 @@ export interface Selection {
   [key: string]: unknown;
 }
 
-export interface EditorContext {
-  /** El plano tal como está ahora (cambia al deshacer, abrir un archivo o cambiar de planta). */
-  readonly plan: Plan;
-  readonly sel: Selection | null;
+export interface EditorOps {
+  /** El contenedor del diseñador ([data-planner]). */
+  root: HTMLElement;
   /** Renglón de ayuda bajo el plano. */
   hint: HTMLElement;
   /** Campo con el nombre del plano. */
@@ -22,4 +22,18 @@ export interface EditorContext {
   commit(selection: Selection | null): void;
   /** Guarda el plano en el navegador. */
   save(): void;
+  /** Redibuja el plano, sin guardar. */
+  render(): void;
+  setTool(name: string, type?: string | null, own?: ShelfItem): void;
+  /** Pasa los ajustes, capas, plantas e imagen de referencia del plano a los controles de la pantalla. */
+  syncSettings(): void;
+  /** Un plano leído de un archivo o del navegador, completado y migrado; null si no es un plano. */
+  normalize(saved: unknown): Plan | null;
+  /** El plano como JSON, sin la imagen de referencia. */
+  snapshot(): string;
+  /** Suma muros (pares de extremos), uniéndolos a los que ya están. */
+  addWalls(list: [Point, Point][]): void;
 }
+
+/** Las operaciones del editor. Vacío hasta que init() las registra. */
+export const ops = {} as EditorOps;

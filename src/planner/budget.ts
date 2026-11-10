@@ -2,21 +2,22 @@
    con las calculadoras (quedan en este navegador); los de aberturas y artefactos son propios de cada plano. */
 import { engine as E } from "../../lib/calc";
 import { plan as P } from "../../lib/plan";
-import type { EditorContext } from "./context";
+import { ops } from "./context";
+import { st } from "./state";
 import { download, fileName } from "./files";
 
-export function openBudget(ed: EditorContext) {
-  const brand = window.__BRAND__, hint = ed.hint, title = ed.title;
+export function openBudget() {
+  const brand = window.__BRAND__, hint = ops.hint, title = ops.title;
   const BG = brand.budget, U = brand.panel, K = brand.costs;
   if (!BG || !U || !K) return;
-  if (!P.levelsOf(ed.plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para presupuestar."; return; }
+  if (!P.levelsOf(st.plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para presupuestar."; return; }
   const esc = U.esc, PRICE_KEY = "calcuobra.precios.v1", money = K.money;
   const loadPrices = () => { try { return K.clean(JSON.parse(localStorage.getItem(PRICE_KEY) || "{}")); } catch (e) { return {}; } };
   const savePrices = (p: Record<string, number>) => { try { if (Object.keys(p).length) localStorage.setItem(PRICE_KEY, JSON.stringify(p)); else localStorage.removeItem(PRICE_KEY); } catch (e) { /* sin almacenamiento */ } };
   let prices: Record<string, number> = loadPrices();
   const qty = (l: { qty: number; unit: string }) => E.fmt(l.qty, l.unit === "unidad" || l.unit === "placa" || /^rollo/.test(l.unit) ? 0 : 2);
   function render(): string {
-    const bud = BG!.build(ed.plan, prices);
+    const bud = BG!.build(st.plan, prices);
     const stat = (label: string, value: string, cls?: string) => '<div class="bg-stat' + (cls ? " " + cls : "") + '"><span>' + esc(label) + "</span><strong>" + esc(value) + "</strong></div>";
     const pct = (k: "gg" | "ben" | "iva", label: string) => '<label>' + label + ' <input type="text" inputmode="decimal" data-key="pase-' + k + '" data-pase="' + k + '" value="' + E.fmt(bud.pase[k], 1) + '"> %</label>';
     let html = '<div class="bg-top">' + stat("Precio final", money(bud.total), "is-main") + stat("Costo directo", money(bud.direct)) + stat("Materiales", money(bud.mat)) + stat("Mano de obra", money(bud.mo)) +
@@ -43,22 +44,22 @@ export function openBudget(ed: EditorContext) {
     return html;
   }
   function change(e: Event) {
-    const el = e.target as HTMLInputElement, plan = ed.plan;
+    const el = e.target as HTMLInputElement, plan = st.plan;
     if (el.hasAttribute("data-pase")) {
       const v = E.parseNum(el.value);
       if (!(v >= 0 && v <= 100)) { el.setAttribute("aria-invalid", "true"); return; }
-      ed.pushHistory();
+      ops.pushHistory();
       plan.budget = Object.assign({}, plan.budget, { pase: Object.assign({}, BG!.PASE, (plan.budget || {}).pase, { [el.getAttribute("data-pase") as string]: v }) });
-      ed.save();
+      ops.save();
     } else if (el.hasAttribute("data-price")) {
       const key = el.getAttribute("data-price") as string, raw = el.value.trim().replace(/^\$\s*/, ""), v = raw === "" ? null : E.parseNum(raw);
       if (v !== null && !(v >= 0)) { el.setAttribute("aria-invalid", "true"); return; }
       if (key.indexOf("p:") === 0) {
-        ed.pushHistory();
+        ops.pushHistory();
         const own: Record<string, number> = Object.assign({}, (plan.budget || {}).prices);
         if (v === null) delete own[key]; else own[key] = v;
         plan.budget = Object.assign({}, plan.budget, { prices: own });
-        ed.save();
+        ops.save();
       } else {
         if (v === K!.priceOf(key, {})) delete prices[key]; else prices[key] = v as number;
         savePrices(prices);
@@ -78,7 +79,7 @@ export function openBudget(ed: EditorContext) {
         try {
           let store;
           try { store = apu.clean(JSON.parse(localStorage.getItem(KEY) as string)); } catch (e) { store = apu.empty(); }
-          Object.assign(prices, apu.fromPlan(store, BG.build(ed.plan, prices)));
+          Object.assign(prices, apu.fromPlan(store, BG.build(st.plan, prices)));
           if (!store.name && !/^plano sin t/i.test(title.value.trim())) store.name = title.value.trim();
           localStorage.setItem(KEY, JSON.stringify(store));
           savePrices(prices);
@@ -86,7 +87,7 @@ export function openBudget(ed: EditorContext) {
         } catch (e) { hint.textContent = "Tu navegador no deja guardar el presupuesto (¿ventana privada?)."; }
         return;
       }
-      download(fileName(ed.plan.name, "csv").replace(/\.csv$/, "-presupuesto.csv"), new Blob([BG.csv(BG.build(ed.plan, prices))], { type: "text/csv;charset=utf-8" }));
+      download(fileName(st.plan.name, "csv").replace(/\.csv$/, "-presupuesto.csv"), new Blob([BG.csv(BG.build(st.plan, prices))], { type: "text/csv;charset=utf-8" }));
     }
   });
 }
