@@ -23,9 +23,16 @@ export interface ResultSection {
   rows: Row[];
 }
 
+/** Una verificación: cumple, no cumple o nota, con el artículo del reglamento. */
+export interface CirsocCheck {
+  state: "ok" | "fail" | "info";
+  ref: string;
+  text: string;
+}
+
 /** Lo que devuelve la verificación CIRSOC (lib/cirsoc.js). */
 export interface CirsocReview {
-  checks: unknown[];
+  checks: CirsocCheck[];
   sections: ResultSection[];
   materials: Record<string, number>;
   ties?: unknown;
