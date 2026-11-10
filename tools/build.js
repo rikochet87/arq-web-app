@@ -7,7 +7,6 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-const VERSION = "20261024"; // subilo en cada publicación para que los navegadores tomen los cambios
 const SITE_URL = ""; // ej. "https://www.tudominio.com.ar" — al completarlo se generan canonical, sitemap.xml y robots.txt
 // Datos del responsable del sitio, para las páginas legales. Lo que quede vacío aparece marcado como TODO en la página.
 const OWNER = {
@@ -19,7 +18,7 @@ const OWNER = {
 const LEGAL_DATE = "13 de octubre de 2026"; // última actualización de las páginas legales
 
 globalThis.window = {};
-for (const lib of ["manifest.js", "calc.js", "plan.js"]) require(path.join(ROOT, "lib", lib));
+for (const lib of ["manifest.js", "calc.js", "plan.ts"]) require(path.join(ROOT, "lib", lib)); // plan.ts: Node 22.18 o posterior
 const BRAND = globalThis.window.__BRAND__;
 const DATA = BRAND.data;
 
@@ -356,7 +355,7 @@ const PLANNER = {
   file: "disenador-de-planos.html",
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
   app: true,
-  js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/cirsoc.js", "lib/sketch.js", "lib/sheets.js", "lib/dxf.js", "lib/dxfin.js", "lib/schedules.js", "lib/costs.js", "lib/budget.js", "lib/apu.js", "view3d.js", "docs.js", "panel.js", "planner.js"],
+  entry: "disenador",
   title: "Diseñador de planos con cómputo de materiales | CalcuObra",
   description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
@@ -705,9 +704,9 @@ function layout(p, body) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="styles.css?v=${VERSION}">
-  ${(p.ld || []).map(jsonLd).join("\n  ")}${p.importmap ? `\n  <script type="importmap">${JSON.stringify(p.importmap)}</script>` : ""}${(p.js || []).map((src) => `
-  <script defer src="${src}?v=${VERSION}"></script>`).join("")}
+  <link rel="stylesheet" href="styles.css">
+  ${(p.ld || []).map(jsonLd).join("\n  ")}${p.importmap ? `\n  <script type="importmap">${JSON.stringify(p.importmap)}</script>` : ""}${p.entry ? `
+  <script type="module" src="src/entries/${p.entry}.ts"></script>` : ""}
 </head>
 <body${p.app ? ' class="app"' : ""}>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -752,7 +751,7 @@ ${PAGES.filter((p) => p.key !== exceptKey).map((p) => `        <li><a class="car
 }
 
 function calculatorPage(p) {
-  p.js = ["lib/manifest.js", "lib/calc.js", "lib/costs.js", "lib/apu.js", "main.js"];
+  p.entry = "calculadora";
   p.ld = [
     Object.assign({
       "@context": "https://schema.org", "@type": "WebApplication", name: p.h1, description: p.description,
@@ -809,7 +808,7 @@ const BUDGET = {
   file: "presupuesto.html",
   title: "Presupuesto de obra con análisis de precios | CalcuObra",
   description: "Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.",
-  js: ["lib/manifest.js", "lib/calc.js", "lib/rubros.js", "lib/costs.js", "lib/apu.js", "presupuesto.js"],
+  entry: "presupuesto",
   terms: [
     ["Rubro", "Un trabajo de la obra que se mide en una unidad: un metro cuadrado de pared, un metro cúbico de hormigón, un metro de zócalo."],
     ["Cómputo", "Cuánto hay de cada rubro en tu obra. Si la casa tiene 120 m² de pared, el cómputo de ese rubro es 120."],
@@ -870,7 +869,7 @@ function homePage() {
     file: "index.html",
     title: "Planos y calculadoras de construcción gratis | CalcuObra",
     description: "Dibujá el plano de tu casa y obtené el cómputo de materiales al instante. Subí un plano de AutoCAD (DXF) y miralo en un render 3D. Más calculadoras de ladrillos, hormigón, pintura y pisos. Gratis.",
-    js: ["lib/manifest.js", "lib/calc.js", "lib/plan.js", "lib/dxfin.js", "view3d.js", "render.js", "cad.js"],
+    entry: "portada",
     ld: [Object.assign({ "@context": "https://schema.org", "@type": "WebSite", name: BRAND.name, inLanguage: "es-AR" }, SITE_URL ? { url: SITE_URL + "/" } : {})]
   };
   const preview = BRAND.plan.staticSVG(BRAND.plan.sample());

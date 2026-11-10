@@ -58,7 +58,7 @@ The **budget** follows the formal public works method: pick the jobs, enter quan
 
 ## Technical notes
 
-- **Static site, no backend**: HTML, CSS and JavaScript, built with **Vite** and moving to **TypeScript** file by file. The model's types live in `src/types/plan.ts`. A small Node script generates one page per calculator from a single list, so adding a calculator is one function and one entry.
+- **Static site, no backend**: HTML, CSS and JavaScript, built with **Vite** and moving to **TypeScript** file by file. Each page loads one entry module from `src/entries/`. The model's types live in `src/types/plan.ts`; `lib/plan.ts` (geometry and quantity takeoff) is the first module already in TypeScript. A small Node script generates one page per calculator from a single list, so adding a calculator is one function and one entry.
 - **Three.js** for the 3D view and the DXF renderer.
 - **Privacy by design**: plans, prices and budgets are stored only in the browser. Nothing is uploaded and no account is needed.
 - Deployed on Vercel.
@@ -66,7 +66,7 @@ The **budget** follows the formal public works method: pick the jobs, enter quan
 ## Run it locally
 
 ```bash
-npm install
+npm install          # Node 22.18 or later
 npm run dev          # http://localhost:8137, reloads on every change
 npm run build        # production build in dist/ (what Vercel publishes)
 npm run typecheck    # TypeScript check
