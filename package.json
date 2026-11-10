@@ -1,0 +1,23 @@
+{
+  "name": "arq-web-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Diseñador de planos, cómputo de materiales y presupuesto de obra para Argentina",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "pages": "node tools/build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rikochet87/arq-web-app.git"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7"
+  }
+}
