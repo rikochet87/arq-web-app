@@ -8,7 +8,7 @@
 
   const brand = window.__BRAND__ || {};
   const P = brand.plan, E = brand.engine;
-  const HANDOFF = "calcuobra.importado"; // plano que se le pasa al diseñador: planner.js lo toma al abrir con #importado
+  const HANDOFF = "calcuobra.importado"; // plano que se le pasa al diseñador: src/planner/editor.js lo toma al abrir con #importado
   const MAX = 40 * 1024 * 1024;
   const UNIT_NAMES = { 100: "metros", 1: "centímetros", 0.1: "milímetros" };
   const KIND_NAMES = { planta: "planta", techo: "planta de techos", corte: "corte", vista: "vista", otro: "otro dibujo", "?": "sin identificar" };

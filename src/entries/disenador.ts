@@ -15,4 +15,4 @@ import "../../lib/apu.js";
 import "../../view3d.js";
 import "../../docs.js";
 import "../../panel.js";
-import "../../planner.js";
+import "../planner/editor.js";
