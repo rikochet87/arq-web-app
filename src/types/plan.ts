@@ -1,9 +1,9 @@
 /* Tipos del modelo del plano, tal como lo guarda hoy el diseñador (localStorage "calcuobra.plano.v1" y los archivos
-   exportados). Describen los datos existentes; no cambian nada. Son la base para migrar planner.js y los demás scripts a
+   exportados). Describen los datos existentes; no cambian nada. Son la base para migrar el editor (src/planner/) y los demás scripts a
    TypeScript y, más adelante, para el modelo BIM (identificadores estables, propiedades por elemento, IFC).
 
    Unidades: todas las medidas en cm. Coordenadas en planta: x hacia la derecha, y hacia abajo (como el SVG).
-   Los campos opcionales faltan en planos guardados por versiones anteriores: normalize() en planner.js los completa. */
+   Los campos opcionales faltan en planos guardados por versiones anteriores: normalize() en src/planner/editor.js los completa. */
 
 /** Identificador numérico de un elemento, único dentro del plano (plan.nextId da el siguiente). */
 export type Id = number;
@@ -230,8 +230,20 @@ export interface Plan extends LevelContent {
   section?: Section | null;
   variants?: Variant[];
   variant?: number;
+  /** Nombre del plano (el título del editor). */
+  name?: string;
   /** Capas visibles en el editor. */
   layers?: Partial<Record<string, boolean>>;
+  /** false: sin imán a la grilla ni a los extremos de los muros. */
+  snap?: boolean;
+  /** Cómo se ven las fases en el plano: "obra", "actual" o "municipal". */
+  phaseView?: string;
+  /** Plantilla de vista aplicada (municipal, obra o cliente), mientras no se toque una capa a mano. */
+  viewTemplate?: string;
+  /** Presupuesto del plano: gastos generales, beneficio e IVA propios y precios de aberturas y artefactos. */
+  budget?: { pase?: Partial<Record<string, number>>; prices?: Record<string, number> };
+  /** Datos de las láminas: carátula, plantilla y hojas. */
+  doc?: unknown;
   /** Losas a distintas alturas: un punto dentro de un ambiente y la cara superior de su losa (z, desde el piso de la planta). */
   slabs?: SlabMark[];
   /** Imagen de referencia para calcar. No se guarda en el historial. */

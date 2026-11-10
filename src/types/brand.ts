@@ -5,6 +5,7 @@ import type { engine } from "../../lib/calc";
 import type { plan } from "../../lib/plan";
 import type { BrandData } from "./data";
 import type { Plan } from "./plan";
+import type { ApuModule, BudgetModule, CostsModule, PanelModule, SchedulesModule } from "./modules";
 
 export type { BrandData };
 /** Fórmulas de lib/calc.ts. */
@@ -37,6 +38,11 @@ export interface Brand {
   engine: BrandEngine;
   plan?: typeof plan;
   cirsoc?: { review(plan: Plan, context: unknown): CirsocReview };
+  panel?: PanelModule;
+  schedules?: SchedulesModule;
+  budget?: BudgetModule;
+  costs?: CostsModule;
+  apu?: ApuModule;
   [key: string]: unknown;
 }
 
