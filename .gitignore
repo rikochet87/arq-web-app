@@ -7,8 +7,9 @@ desktop.ini
 .vscode/
 .idea/
 
-# Node (hoy no hay dependencias, por si se agregan)
+# Node y build de Vite
 node_modules/
+dist/
 npm-debug.log*
 
 # Vercel (vínculo local con el proyecto)
