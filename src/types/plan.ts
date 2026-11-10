@@ -3,7 +3,7 @@
    TypeScript y, más adelante, para el modelo BIM (identificadores estables, propiedades por elemento, IFC).
 
    Unidades: todas las medidas en cm. Coordenadas en planta: x hacia la derecha, y hacia abajo (como el SVG).
-   Los campos opcionales faltan en planos guardados por versiones anteriores: normalize() en src/planner/editor.js los completa. */
+   Los campos opcionales faltan en planos guardados por versiones anteriores: normalize() en src/planner/store.ts los completa. */
 
 /** Identificador numérico de un elemento, único dentro del plano (plan.nextId da el siguiente). */
 export type Id = number;

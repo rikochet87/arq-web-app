@@ -1,4 +1,4 @@
-/* Operaciones del editor (src/planner/editor.js) que usan los demás módulos del diseñador: guardar, redibujar,
+/* Operaciones del editor que usan los demás módulos del diseñador: guardar, redibujar,
    cambiar de herramienta… El editor las registra al arrancar (init); el estado está en state.ts. */
 import type { Plan, Point } from "../types/plan";
 import type { ShelfItem } from "./library";
