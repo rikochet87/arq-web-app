@@ -5,7 +5,7 @@ import type { engine } from "../../lib/calc";
 import type { plan } from "../../lib/plan";
 import type { BrandData } from "./data";
 import type { Plan } from "./plan";
-import type { ApuModule, BudgetModule, CostsModule, PanelModule, SchedulesModule } from "./modules";
+import type { ApuModule, BudgetModule, CadModule, CostsModule, DxfModule, PanelModule, SchedulesModule, SketchModule } from "./modules";
 
 export type { BrandData };
 /** Fórmulas de lib/calc.ts. */
@@ -43,6 +43,9 @@ export interface Brand {
   budget?: BudgetModule;
   costs?: CostsModule;
   apu?: ApuModule;
+  sketch?: SketchModule;
+  cad?: CadModule;
+  dxf?: DxfModule;
   [key: string]: unknown;
 }
 

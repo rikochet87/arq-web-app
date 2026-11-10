@@ -2,14 +2,19 @@
    símbolos están en lib/plan.ts; las constantes, las bibliotecas, las planillas y el presupuesto, en los otros módulos de
    src/planner/. */
 import * as G from "./geometry.ts";
-import { COLOR_NAMES, GRID, HANDOFF, HINTS, KEYS, LAYERS, OPTIONS, SHELF, SHELF_MAX, STEPS, STORE, UNTITLED, VIEW_TEMPLATES } from "./constants.ts";
+import { COLOR_NAMES, GRID, HANDOFF, HINTS, KEYS, OPTIONS, SHELF, SHELF_MAX, STEPS, STORE, UNTITLED, VIEW_TEMPLATES } from "./constants.ts";
 import { $, $$, escHTML } from "./dom.ts";
 import { download, fileName as planFileName } from "./files.ts";
 import { itemLibraryHTML, libraryHTML } from "./library.ts";
 import { openBudget } from "./budget.ts";
 import { openSchedules } from "./schedules.ts";
+import { itemById, layers, nextId, noteById, openingById, st, surfaceById, wallById } from "./state.ts";
+import { applySketch, cancelSketch, detectSketch, readSketch, sketchPoint, sketchScale } from "./sketch.ts";
+import { exportDrawing, exportDxf, exportJson, openPlanFile, openRefImage } from "./io.ts";
+import { ops } from "./context.ts";
+import { clampT, fit, hasWires, hitItem, hitNote, hitOpening, hitSurface, hitWall, itemLayer, itemPoint, movePoints, px, snap, toWorld } from "./viewport.ts";
 
-const { dist, same, copy, round, n1, pt1, project, along, straight, simplify } = G;
+const { dist, same, copy, round, n1, pt1, project, straight, simplify } = G;
 
 const brand = window.__BRAND__ || {};
 const E = brand.engine, P = brand.plan, D = brand.data;
@@ -21,33 +26,25 @@ function init(root) {
   const settings = $("[data-settings]", root), out = $("[data-result]", root), title = $("[data-title]", root);
   const legend = $("[data-phase-legend]", root) || document.createElement("div"), phaseView = $("[data-phase-view]", root);
   const emptyNote = $("[data-empty-note]", root);
-  const sketchBar = $("[data-sketch-bar]", root), checksOut = $("[data-checks]", root), checksCount = $("[data-checks-count]", root);
+  const checksOut = $("[data-checks]", root), checksCount = $("[data-checks-count]", root);
   const sectionBox = $("[data-section-box]", root), sectionOut = $("[data-section]", root);
   const compareBox = $("[data-compare-box]", root), compareOut = $("[data-compare]", root);
   const refBox = $("[data-ref-box]", root), stage3d = $("[data-view3d]", root), note3d = $("[data-view3d-msg]", root);
   const zoomOut = $("[data-zoom]", root), coords = $("[data-coords]", root), scaleBar = $("[data-scale]", root), emptyBox = $("[data-empty]", root);
-  const view = { x: 0, y: 0, w: 1000, h: 1000 };
-  const history = [], future = [];
-  let plan = start();
-  let tool = "select", pick = null, sel = null, chain = null, hover = null, ghost = null, typed = "", drag = null, model = null, text = "", measure = null, arcEnd = null, wireFrom = null, sketch = null;
-  let spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
-  let nextType = ""; // tipo de muro (id) de los muros que se dibujen a continuación; vacío = el tipo por defecto de su clase
-  let editType = ""; // tipo de muro abierto en el panel "Tipos de muro"
-  let nextPhase = ""; // fase de los muros que se dibujen: vacío = a construir; "existente" para relevar lo que ya está
-  let multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
-  let nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
-  let shelf = loadShelf(); // biblioteca personal de muebles
-  let stamp = null; // mueble de la biblioteca personal que se está colocando; si no, se coloca el de la biblioteca general ("pick")
-  let presenting = false; // modo presentación: solo el plano, para mostrarlo y marcarlo frente al cliente
-  // Lo que reciben los módulos del diseñador (src/planner/context.ts): el plano y la selección siempre al día.
-  const ed = {
-    get plan() { return plan; },
-    get sel() { return sel; },
-    hint: hint, title: title,
-    pushHistory: function () { pushHistory(); },
-    commit: function (selection) { commit(selection); },
-    save: function () { save(); }
-  };
+  st.canvas = svg;
+  st.view = { x: 0, y: 0, w: 1000, h: 1000 };
+  st.history = []; st.future = [];
+  st.plan = start();
+  st.tool = "select"; st.pick = null; st.sel = null; st.chain = null; st.hover = null; st.ghost = null; st.typed = ""; st.drag = null; st.model = null; st.text = ""; st.measure = null; st.arcEnd = null; st.wireFrom = null; st.sketch = null;
+  st.spaceDown = false; // barra espaciadora apretada: arrastrar desplaza el plano, con cualquier herramienta
+  st.nextType = ""; // tipo de muro (id) de los muros que se dibujen a continuación; vacío = el tipo por defecto de su clase
+  st.editType = ""; // tipo de muro abierto en el panel "Tipos de muro"
+  st.nextPhase = ""; // fase de los muros que se dibujen: vacío = a construir; "existente" para relevar lo que ya está
+  st.multi = false; // "Elegir varios": cada toque suma o quita muros, como Shift; para pantallas táctiles
+  st.nextNote = { color: "", w: "m" }; // color y grosor de las anotaciones que se dibujen a continuación
+  st.shelf = loadShelf(); // biblioteca personal de muebles
+  st.stamp = null; // mueble de la biblioteca personal que se está colocando; si no, se coloca el de la biblioteca general ("pick")
+  st.presenting = false; // modo presentación: solo el plano, para mostrarlo y marcarlo frente al cliente
 
   // ---------- Estado ----------
   function load() {
@@ -81,27 +78,27 @@ function init(root) {
         .map((o) => ({ id: String(o.id), type: o.type, name: String(o.name || D.items[o.type].label).slice(0, 40), w: Math.round(o.w), d: Math.round(o.d), tall: o.tall >= 5 ? Math.round(o.tall) : undefined, shape: o.shape === "round" ? "round" : undefined }));
     } catch (e) { return []; }
   }
-  function saveShelf() { try { localStorage.setItem(SHELF, JSON.stringify(shelf)); } catch (e) { /* sin almacenamiento */ } }
+  function saveShelf() { try { localStorage.setItem(SHELF, JSON.stringify(st.shelf)); } catch (e) { /* sin almacenamiento */ } }
   // Vuelve a armar la biblioteca de equipamiento sin plegar los grupos que estaban abiertos.
   function renderLibrary() {
     const box = $("[data-items]", root), open = $$("details[open]", box).map((d) => d.getAttribute("data-group"));
     const first = !box.firstChild;
-    box.innerHTML = itemLibraryHTML(shelf);
+    box.innerHTML = itemLibraryHTML(st.shelf);
     if (!first) $$("details", box).forEach(function (d) { d.open = open.indexOf(d.getAttribute("data-group")) >= 0; });
     syncPicks();
   }
   function syncPicks() {
-    $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === pick)));
-    $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(!stamp && b.getAttribute("data-pick-item") === pick)));
-    $$("[data-pick-shelf]", root).forEach((b) => b.setAttribute("aria-pressed", String(!!stamp && b.getAttribute("data-pick-shelf") === stamp.id)));
+    $$("[data-pick]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-pick") === st.pick)));
+    $$("[data-pick-item]", root).forEach((b) => b.setAttribute("aria-pressed", String(!st.stamp && b.getAttribute("data-pick-item") === st.pick)));
+    $$("[data-pick-shelf]", root).forEach((b) => b.setAttribute("aria-pressed", String(!!st.stamp && b.getAttribute("data-pick-shelf") === st.stamp.id)));
   }
   // Objeto nuevo: el de la biblioteca general o, si se eligió uno propio, con sus medidas, nombre y forma.
   function newItem(id, q) {
-    const it = P.item(id, pick, q.x, q.y, 0);
-    if (!stamp) return it;
-    it.w = stamp.w; it.d = stamp.d;
-    if (D.items[it.type].custom) { it.name = stamp.name; if (stamp.shape) it.shape = stamp.shape; }
-    if (stamp.tall) it.tall = stamp.tall;
+    const it = P.item(id, st.pick, q.x, q.y, 0);
+    if (!st.stamp) return it;
+    it.w = st.stamp.w; it.d = st.stamp.d;
+    if (D.items[it.type].custom) { it.name = st.stamp.name; if (st.stamp.shape) it.shape = st.stamp.shape; }
+    if (st.stamp.tall) it.tall = st.stamp.tall;
     return it;
   }
   // Anotaciones bien formadas: un tipo conocido y puntos con números.
@@ -129,52 +126,44 @@ function init(root) {
       try { fresh = normalize(JSON.parse(localStorage.getItem(HANDOFF))); localStorage.removeItem(HANDOFF); } catch (e) { /* sin almacenamiento */ }
     }
     if (!fresh) return saved || P.empty();
-    if (saved && saved.walls.length) history.push(JSON.stringify(Object.assign({}, saved, { ref: undefined })));
+    if (saved && saved.walls.length) st.history.push(JSON.stringify(Object.assign({}, saved, { ref: undefined })));
     try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* file:// */ }
     return fresh;
   }
   // La imagen de referencia pesa mucho: no entra en el historial y, si no cabe, tampoco en el guardado.
-  const snapshot = () => JSON.stringify(Object.assign({}, plan, { ref: undefined }));
+  const snapshot = () => JSON.stringify(Object.assign({}, st.plan, { ref: undefined }));
   function save() {
-    try { localStorage.setItem(STORE, JSON.stringify(plan)); }
+    try { localStorage.setItem(STORE, JSON.stringify(st.plan)); }
     catch (e) { try { localStorage.setItem(STORE, snapshot()); } catch (err) { /* sin almacenamiento */ } }
   }
-  function pushHistory() { history.push(snapshot()); if (history.length > 60) history.shift(); future.length = 0; }
+  function pushHistory() { st.history.push(snapshot()); if (st.history.length > 60) st.history.shift(); st.future.length = 0; }
   function restore(from, to) {
     if (!from.length) return;
-    const ref = plan.ref;
+    const ref = st.plan.ref;
     to.push(snapshot());
-    plan = JSON.parse(from.pop());
-    plan.ref = ref;
-    chain = null;
+    st.plan = JSON.parse(from.pop());
+    st.plan.ref = ref;
+    st.chain = null;
     commit(null);
     syncSettings();
   }
-  function nextId() { plan.nextId = (plan.nextId || 1) + 1; return plan.nextId; }
-  const layers = () => Object.assign({}, LAYERS, plan.layers);
-  const wallById = (id) => plan.walls.find((w) => w.id === id);
-  const openingById = (id) => plan.openings.find((o) => o.id === id);
-  const itemById = (id) => plan.items.find((it) => it.id === id);
-
-  const surfaceById = (id) => plan.surfaces.find((sf) => sf.id === id);
-  const noteById = (id) => plan.notes.find((nt) => nt.id === id);
 
   // Plantas: los campos de P.LEVEL_FIELDS son siempre los de la planta activa; las demás esperan en plan.levels.
   function stashLevel() {
-    if (!plan.levels || !plan.levels.length) plan.levels = [{ name: P.LEVEL_NAMES[0] }];
-    plan.level = Math.min(plan.level || 0, plan.levels.length - 1);
-    const level = { name: plan.levels[plan.level].name };
-    P.LEVEL_FIELDS.forEach(function (f) { level[f] = plan[f] || []; });
-    plan.levels[plan.level] = level;
+    if (!st.plan.levels || !st.plan.levels.length) st.plan.levels = [{ name: P.LEVEL_NAMES[0] }];
+    st.plan.level = Math.min(st.plan.level || 0, st.plan.levels.length - 1);
+    const level = { name: st.plan.levels[st.plan.level].name };
+    P.LEVEL_FIELDS.forEach(function (f) { level[f] = st.plan[f] || []; });
+    st.plan.levels[st.plan.level] = level;
   }
   function loadLevel(index) {
-    const level = plan.levels[index];
-    plan.level = index;
-    P.LEVEL_FIELDS.forEach(function (f) { plan[f] = level[f] || []; });
+    const level = st.plan.levels[index];
+    st.plan.level = index;
+    P.LEVEL_FIELDS.forEach(function (f) { st.plan[f] = level[f] || []; });
   }
   function showLevel(index) {
     loadLevel(index);
-    chain = null;
+    st.chain = null;
     fit();
     commit(null);
     syncSettings();
@@ -182,156 +171,81 @@ function init(root) {
   }
   /* Opciones de diseño (variantes): igual que las plantas, la opción activa vive en los campos de trabajo del plano
      y las demás esperan en plan.variants. Comparten los ajustes de obra, las capas y los datos de carátula. */
-  const variantCount = () => Math.max(1, (plan.variants || []).length);
+  const variantCount = () => Math.max(1, (st.plan.variants || []).length);
   function stashVariant() {
     stashLevel();
-    if (!plan.variants || !plan.variants.length) plan.variants = [{}];
-    plan.variant = Math.min(plan.variant || 0, plan.variants.length - 1);
-    plan.variants[plan.variant] = { levels: JSON.parse(JSON.stringify(plan.levels)), level: plan.level, section: plan.section || null };
+    if (!st.plan.variants || !st.plan.variants.length) st.plan.variants = [{}];
+    st.plan.variant = Math.min(st.plan.variant || 0, st.plan.variants.length - 1);
+    st.plan.variants[st.plan.variant] = { levels: JSON.parse(JSON.stringify(st.plan.levels)), level: st.plan.level, section: st.plan.section || null };
   }
   function showVariant(index) {
-    const v = plan.variants[index];
-    plan.variant = index;
-    plan.levels = JSON.parse(JSON.stringify(v.levels));
-    plan.section = v.section || null;
-    showLevel(Math.min(v.level || 0, plan.levels.length - 1));
+    const v = st.plan.variants[index];
+    st.plan.variant = index;
+    st.plan.levels = JSON.parse(JSON.stringify(v.levels));
+    st.plan.section = v.section || null;
+    showLevel(Math.min(v.level || 0, st.plan.levels.length - 1));
   }
-  const roomAt = (p) => model.rooms.find((r) => P.inside(r.points, p));
-  const pickedWalls = () => !sel ? [] : sel.type === "wall" ? [sel.id] : sel.type === "walls" ? sel.ids : [];
+  const roomAt = (p) => st.model.rooms.find((r) => P.inside(r.points, p));
+  const pickedWalls = () => !st.sel ? [] : st.sel.type === "wall" ? [st.sel.id] : st.sel.type === "walls" ? st.sel.ids : [];
   const wallsSel = (ids) => ids.length > 1 ? { type: "walls", ids: ids } : ids.length ? { type: "wall", id: ids[0] } : null;
   function selected() {
-    if (!sel) return null;
-    if (sel.type === "walls") { // varios muros: quedan los que sigan existiendo
-      sel = wallsSel(sel.ids.filter((id) => wallById(id)));
-      if (!sel || sel.type === "wall") return sel ? wallById(sel.id) : null;
-      return sel.ids.map(wallById);
+    if (!st.sel) return null;
+    if (st.sel.type === "walls") { // varios muros: quedan los que sigan existiendo
+      st.sel = wallsSel(st.sel.ids.filter((id) => wallById(id)));
+      if (!st.sel || st.sel.type === "wall") return st.sel ? wallById(st.sel.id) : null;
+      return st.sel.ids.map(wallById);
     }
-    return sel.type === "wall" ? wallById(sel.id) : sel.type === "opening" ? openingById(sel.id) : sel.type === "item" ? itemById(sel.id) : sel.type === "surface" ? surfaceById(sel.id) :
-      sel.type === "note" ? noteById(sel.id) : roomAt(sel);
+    return st.sel.type === "wall" ? wallById(st.sel.id) : st.sel.type === "opening" ? openingById(st.sel.id) : st.sel.type === "item" ? itemById(st.sel.id) : st.sel.type === "surface" ? surfaceById(st.sel.id) :
+      st.sel.type === "note" ? noteById(st.sel.id) : roomAt(st.sel);
   }
 
   // Guarda, cambia la selección y redibuja todo.
   function commit(selection) {
-    plan.walls = plan.walls.filter((w) => dist(w.a, w.b) >= GRID);
-    plan.openings = plan.openings.filter((o) => wallById(o.wall));
-    plan.items = plan.items || [];
-    plan.surfaces = plan.surfaces || [];
-    plan.notes = plan.notes || [];
-    plan.wires = (plan.wires || []).filter((w) => itemById(w.a) && itemById(w.b)); // un cable sin una de sus bocas no existe
-    sel = selection;
+    st.plan.walls = st.plan.walls.filter((w) => dist(w.a, w.b) >= GRID);
+    st.plan.openings = st.plan.openings.filter((o) => wallById(o.wall));
+    st.plan.items = st.plan.items || [];
+    st.plan.surfaces = st.plan.surfaces || [];
+    st.plan.notes = st.plan.notes || [];
+    st.plan.wires = (st.plan.wires || []).filter((w) => itemById(w.a) && itemById(w.b)); // un cable sin una de sus bocas no existe
+    st.sel = selection;
     save();
     render();
-    if (!selected()) sel = null;
+    if (!selected()) st.sel = null;
     renderInspector();
     renderVariants();
     renderTypes();
   }
 
-  // ---------- Geometría de pantalla ----------
-  const px = () => view.w / (svg.getBoundingClientRect().width || 1000); // cm por píxel
-  function toWorld(e) {
-    const r = svg.getBoundingClientRect();
-    return { x: view.x + (e.clientX - r.left) / r.width * view.w, y: view.y + (e.clientY - r.top) / r.height * view.h };
-  }
-  function fit() {
-    // Encuadra los muros y también las superficies exteriores.
-    const pts = plan.walls.reduce((all, w) => all.concat([w.a, w.b]), [])
-      .concat((plan.surfaces || []).reduce((all, sf) => all.concat([{ x: sf.x, y: sf.y }, { x: sf.x + sf.w, y: sf.y + sf.h }]), []))
-      .concat((plan.notes || []).reduce(function (all, nt) { const b = P.noteBox(nt); return b.x0 <= b.x1 ? all.concat([{ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y1 }]) : all; }, []));
-    const r = svg.getBoundingClientRect(), ratio = r.width && r.height ? r.height / r.width : 0.75;
-    if (!pts.length) { view.w = Math.max(900, (r.width || 900) * 1.4); view.x = -view.w * 0.25; view.y = -view.w * ratio * 0.25; return; }
-    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-    const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-    view.w = Math.max(maxX - minX, (maxY - minY) / ratio, 300) * 1.3;
-    view.x = (minX + maxX) / 2 - view.w / 2;
-    view.y = (minY + maxY) / 2 - view.w * ratio / 2;
-  }
+  // Operaciones que usan los demás módulos del diseñador (src/planner/context.ts).
+  Object.assign(ops, { root: root, hint: hint, title: title, pushHistory: pushHistory, commit: commit, save: save, render: render, setTool: setTool,
+    syncSettings: syncSettings, normalize: normalize, snapshot: snapshot, addWalls: addWalls });
+
+  // ---------- Geometría de pantalla: src/planner/viewport.ts ----------
   function zoomAt(p, factor) {
-    const w = Math.max(150, Math.min(20000, view.w * factor)), s = w / view.w;
-    view.x = p.x - (p.x - view.x) * s;
-    view.y = p.y - (p.y - view.y) * s;
-    view.w = w;
+    const w = Math.max(150, Math.min(20000, st.view.w * factor)), s = w / st.view.w;
+    st.view.x = p.x - (p.x - st.view.x) * s;
+    st.view.y = p.y - (p.y - st.view.y) * s;
+    st.view.w = w;
     render();
   }
 
-  // Imán: primero a los extremos de otras paredes, después a la grilla. Con "from" endereza a 90°.
-  function snap(p, o) {
-    o = o || {};
-    if (plan.snap === false) return { x: Math.round(p.x), y: Math.round(p.y) };
-    let x = round(p.x), y = round(p.y);
-    if (o.from) {
-      const dx = p.x - o.from.x, dy = p.y - o.from.y;
-      if (Math.abs(dx) < Math.abs(dy) * 0.15) x = o.from.x;
-      else if (Math.abs(dy) < Math.abs(dx) * 0.15) y = o.from.y;
-    }
-    let best = { x: x, y: y }, bestD = 12 * px();
-    // También atrae a las esquinas de la planta de abajo, para apoyar muro sobre muro.
-    plan.walls.concat(model && layers().below ? model.under : []).forEach(function (w) {
-      [w.a, w.b].forEach(function (q) {
-        if (o.skip && same(q, o.skip)) return;
-        const d = dist(q, p);
-        if (d < bestD) { bestD = d; best = copy(q); }
-      });
-    });
-    return best;
-  }
-
-  function hitWall(p) {
-    let best = null;
-    plan.walls.forEach(function (w) {
-      const h = project(w, p);
-      if (h.d <= Math.max((model.wallThick[w.id] || 12) / 2, 9 * px()) && (!best || h.d < best.d)) best = { wall: w, t: h.t, d: h.d };
-    });
-    return best;
-  }
-  function hitOpening(p) {
-    return plan.openings.find((o) => dist(along(wallById(o.wall), o.t), p) <= Math.max(o.w / 2, 10 * px()) &&
-      project(wallById(o.wall), p).d <= Math.max(15, 10 * px()));
-  }
-  // Los objetos se acomodan cada 5 cm.
-  function itemPoint(p) {
-    const step = plan.snap === false ? 1 : 5;
-    return { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step };
-  }
-  const itemLayer = (it) => D.items[it.type].group === "electricidad" ? "electric" : "items";
-  function hitItem(p) {
-    const show = layers();
-    for (let i = plan.items.length - 1; i >= 0; i--) {
-      if (show[itemLayer(plan.items[i])] && P.itemHit(plan.items[i], p, 6 * px())) return plan.items[i];
-    }
-    return null;
-  }
-  function hitNote(p) {
-    if (!layers().notes) return null;
-    for (let i = plan.notes.length - 1; i >= 0; i--) if (P.noteHit(plan.notes[i], p, 7 * px())) return plan.notes[i];
-    return null;
-  }
-  const hitSurface = (p) => plan.surfaces.find((sf) => p.x >= sf.x && p.x <= sf.x + sf.w && p.y >= sf.y && p.y <= sf.y + sf.h);
-  const hasWires = (id) => plan.wires.some((w) => w.a === id || w.b === id);
-  function clampT(o, t) {
-    const half = o.w / 2 / dist(wallById(o.wall).a, wallById(o.wall).b);
-    return half >= 0.5 ? 0.5 : Math.max(half, Math.min(1 - half, t));
-  }
-
-  const movePoints = (pairs) => G.movePoints(plan.walls, pairs);
-
   // ---------- Dibujo ----------
-  const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, model.wallThick[o.wall] || (model.before && model.before.wallThick[o.wall]) || 12, k, cls);
+  const openingSVG = (o, k, cls) => P.openingSVG(wallById(o.wall), o, st.model.wallThick[o.wall] || (st.model.before && st.model.before.wallThick[o.wall]) || 12, k, cls);
 
   function rulersSVG(k) {
     const band = 18 * k, step = STEPS.find((s) => s / k >= 56) || STEPS[STEPS.length - 1], font = ' font-size="' + n1(9 * k) + '"';
-    let html = '<rect class="ruler" x="' + n1(view.x) + '" y="' + n1(view.y) + '" width="' + n1(view.w) + '" height="' + n1(band) + '"/>' +
-      '<rect class="ruler" x="' + n1(view.x) + '" y="' + n1(view.y) + '" width="' + n1(band) + '" height="' + n1(view.h) + '"/>';
-    for (let x = Math.ceil((view.x + band) / step) * step; x < view.x + view.w; x += step) {
-      html += P.lineSVG({ x: x, y: view.y + band * 0.5 }, { x: x, y: view.y + band }, "ruler-tick", k) +
-        '<text class="ruler-text"' + font + ' x="' + n1(x + 3 * k) + '" y="' + n1(view.y + band * 0.42) + '">' + E.fmt((x || 0) / 100, 1) + "</text>";
+    let html = '<rect class="ruler" x="' + n1(st.view.x) + '" y="' + n1(st.view.y) + '" width="' + n1(st.view.w) + '" height="' + n1(band) + '"/>' +
+      '<rect class="ruler" x="' + n1(st.view.x) + '" y="' + n1(st.view.y) + '" width="' + n1(band) + '" height="' + n1(st.view.h) + '"/>';
+    for (let x = Math.ceil((st.view.x + band) / step) * step; x < st.view.x + st.view.w; x += step) {
+      html += P.lineSVG({ x: x, y: st.view.y + band * 0.5 }, { x: x, y: st.view.y + band }, "ruler-tick", k) +
+        '<text class="ruler-text"' + font + ' x="' + n1(x + 3 * k) + '" y="' + n1(st.view.y + band * 0.42) + '">' + E.fmt((x || 0) / 100, 1) + "</text>";
     }
-    for (let y = Math.ceil((view.y + band) / step) * step; y < view.y + view.h; y += step) {
-      const tx = n1(view.x + band * 0.42), ty = n1(y - 3 * k);
-      html += P.lineSVG({ x: view.x + band * 0.5, y: y }, { x: view.x + band, y: y }, "ruler-tick", k) +
+    for (let y = Math.ceil((st.view.y + band) / step) * step; y < st.view.y + st.view.h; y += step) {
+      const tx = n1(st.view.x + band * 0.42), ty = n1(y - 3 * k);
+      html += P.lineSVG({ x: st.view.x + band * 0.5, y: y }, { x: st.view.x + band, y: y }, "ruler-tick", k) +
         '<text class="ruler-text"' + font + ' x="' + tx + '" y="' + ty + '" transform="rotate(-90 ' + tx + " " + ty + ')">' + E.fmt((y || 0) / 100, 1) + "</text>";
     }
-    return html + '<rect class="ruler" x="' + n1(view.x) + '" y="' + n1(view.y) + '" width="' + n1(band) + '" height="' + n1(band) + '"/>';
+    return html + '<rect class="ruler" x="' + n1(st.view.x) + '" y="' + n1(st.view.y) + '" width="' + n1(band) + '" height="' + n1(band) + '"/>';
   }
 
   // Giro de una imagen alrededor de su centro (la foto de un boceto torcido se muestra ya enderezada).
@@ -339,37 +253,37 @@ function init(root) {
 
   function render() {
     const r = svg.getBoundingClientRect();
-    if (r.width && r.height) view.h = view.w * r.height / r.width;
-    svg.setAttribute("viewBox", [view.x, view.y, view.w, view.h].map(n1).join(" "));
-    model = P.compute(plan);
+    if (r.width && r.height) st.view.h = st.view.w * r.height / r.width;
+    svg.setAttribute("viewBox", [st.view.x, st.view.y, st.view.w, st.view.h].map(n1).join(" "));
+    st.model = P.compute(st.plan);
     const k = px(), font = 12 * k, show = layers();
     const label = (x, y, cls, s) => '<text class="' + cls + '" x="' + n1(x) + '" y="' + n1(y) + '" font-size="' + n1(font) + '">' + escHTML(s) + "</text>";
     const dash = ' stroke-dasharray="' + n1(8 * k) + " " + n1(6 * k) + '"';
-    const active = sel && sel.type === "room" ? roomAt(sel) : null, picked = pickedWalls();
+    const active = st.sel && st.sel.type === "room" ? roomAt(st.sel) : null, picked = pickedWalls();
 
     let html = "";
-    if (plan.ref && plan.ref.src) {
-      html += '<image href="' + plan.ref.src + '" x="' + n1(plan.ref.x) + '" y="' + n1(plan.ref.y) + '" width="' + n1(plan.ref.w) + '" height="' + n1(plan.ref.w * plan.ref.ratio) +
-        '" opacity="' + plan.ref.opacity + '" preserveAspectRatio="none"' + turn(plan.ref.rot, plan.ref.x + plan.ref.w / 2, plan.ref.y + plan.ref.w * plan.ref.ratio / 2) + "/>";
+    if (st.plan.ref && st.plan.ref.src) {
+      html += '<image href="' + st.plan.ref.src + '" x="' + n1(st.plan.ref.x) + '" y="' + n1(st.plan.ref.y) + '" width="' + n1(st.plan.ref.w) + '" height="' + n1(st.plan.ref.w * st.plan.ref.ratio) +
+        '" opacity="' + st.plan.ref.opacity + '" preserveAspectRatio="none"' + turn(st.plan.ref.rot, st.plan.ref.x + st.plan.ref.w / 2, st.plan.ref.y + st.plan.ref.w * st.plan.ref.ratio / 2) + "/>";
     }
-    if (sketch) {
+    if (st.sketch) {
       const k2 = sketchScale(), corner = sketchPoint(0, 0);
-      html += '<image href="' + sketch.src + '" x="' + n1(corner.x) + '" y="' + n1(corner.y) + '" width="' + n1(sketch.w * k2) + '" height="' + n1(sketch.h * k2) + '" opacity="0.5" preserveAspectRatio="none"' + turn(sketch.angle, corner.x + sketch.w * k2 / 2, corner.y + sketch.h * k2 / 2) + "/>";
+      html += '<image href="' + st.sketch.src + '" x="' + n1(corner.x) + '" y="' + n1(corner.y) + '" width="' + n1(st.sketch.w * k2) + '" height="' + n1(st.sketch.h * k2) + '" opacity="0.5" preserveAspectRatio="none"' + turn(st.sketch.angle, corner.x + st.sketch.w * k2 / 2, corner.y + st.sketch.h * k2 / 2) + "/>";
     }
     if (show.grid) {
       html += '<defs><pattern id="plan-grid" width="100" height="100" patternUnits="userSpaceOnUse"><path class="grid-line" d="M100 0H0V100" stroke-width="' +
-        n1(k) + '"/></pattern></defs><rect x="' + n1(view.x) + '" y="' + n1(view.y) + '" width="' + n1(view.w) + '" height="' + n1(view.h) + '" fill="url(#plan-grid)"/>';
+        n1(k) + '"/></pattern></defs><rect x="' + n1(st.view.x) + '" y="' + n1(st.view.y) + '" width="' + n1(st.view.w) + '" height="' + n1(st.view.h) + '" fill="url(#plan-grid)"/>';
     }
-    plan.surfaces.forEach(function (sf) {
-      html += '<rect class="surface' + (sel && sel.type === "surface" && sel.id === sf.id ? " sel" : "") + '" x="' + sf.x + '" y="' + sf.y + '" width="' + sf.w + '" height="' + sf.h + '" stroke-width="' + n1(k) + '"/>';
+    st.plan.surfaces.forEach(function (sf) {
+      html += '<rect class="surface' + (st.sel && st.sel.type === "surface" && st.sel.id === sf.id ? " sel" : "") + '" x="' + sf.x + '" y="' + sf.y + '" width="' + sf.w + '" height="' + sf.h + '" stroke-width="' + n1(k) + '"/>';
       if (show.names) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 - font * 0.65, "room-label", (D.surfaces[sf.type] || D.surfaces.patio).label);
       if (show.areas) html += label(sf.x + sf.w / 2, sf.y + sf.h / 2 + font * 0.7, "room-area", E.fmt(sf.w * sf.h / 1e4, 1) + " m²");
     });
     // Fases: "obra" = cómo queda (lo existente en gris), "actual" = antes de la obra, "municipal" = colores de plano municipal.
-    const pv = model.phased ? (plan.phaseView || "obra") : "obra", shown = pv === "actual" ? model.before : model;
+    const pv = st.model.phased ? (st.plan.phaseView || "obra") : "obra", shown = pv === "actual" ? st.model.before : st.model;
     const phaseOf = {};
-    plan.walls.forEach(function (w) { phaseOf[w.id] = P.wallPhase(w); });
-    const phaseCls = (ph) => !model.phased ? "" : ph === "demoler" ? " ph-demo" : ph === "existente" ? " ph-old" : pv === "municipal" ? " ph-new" : "";
+    st.plan.walls.forEach(function (w) { phaseOf[w.id] = P.wallPhase(w); });
+    const phaseCls = (ph) => !st.model.phased ? "" : ph === "demoler" ? " ph-demo" : ph === "existente" ? " ph-old" : pv === "municipal" ? " ph-new" : "";
     const openingShown = (o) => {
       const ph = P.openingPhase(o, wallById(o.wall));
       return pv === "municipal" || (pv === "actual" ? ph !== "nueva" : ph !== "demoler");
@@ -380,7 +294,7 @@ function init(root) {
       html += '<polygon class="room' + (room === active ? " sel" : "") + '"' + P.roomFill(room, room === active) + ' points="' + room.points.map((p) => n1(p.x) + "," + n1(p.y)).join(" ") + '"/>';
     });
     // La guía de la planta de abajo va sobre el relleno de los ambientes y debajo de los muros propios.
-    if (show.below) model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
+    if (show.below) st.model.under.forEach(function (e) { html += P.lineSVG(e.a, e.b, "wall under", e.thick); });
     // Cada muro en dos pasadas, como el nivel de detalle "fino" de Revit: primero el espesor terminado
     // (revoques, en tono suave) y encima el núcleo de ladrillo.
     shown.edges.forEach(function (e) {
@@ -391,27 +305,27 @@ function init(root) {
       html += P.lineSVG(e.a, e.b, "wall " + e.cls + (pv === "actual" ? "" : phaseCls(ph)) + (picked.indexOf(e.wall) >= 0 ? " sel" : ""), e.core || e.thick);
     });
     if (pv === "municipal") { // lo que se demuele: en amarillo y a trazos, con el espesor que tiene hoy
-      plan.walls.forEach(function (w) {
+      st.plan.walls.forEach(function (w) {
         if (phaseOf[w.id] !== "demoler") return;
-        html += P.lineSVG(w.a, w.b, "wall ph-demo" + (picked.indexOf(w.id) >= 0 ? " sel" : ""), (model.before && model.before.wallThick[w.id]) || 12, dash);
+        html += P.lineSVG(w.a, w.b, "wall ph-demo" + (picked.indexOf(w.id) >= 0 ? " sel" : ""), (st.model.before && st.model.before.wallThick[w.id]) || 12, dash);
       });
     }
-    plan.openings.forEach(function (o) {
+    st.plan.openings.forEach(function (o) {
       if (!openingShown(o)) return;
       const ph = P.openingPhase(o, wallById(o.wall));
-      html += openingSVG(o, k, (pv === "actual" ? "" : phaseCls(ph)) + (sel && sel.type === "opening" && sel.id === o.id ? " sel" : ""));
+      html += openingSVG(o, k, (pv === "actual" ? "" : phaseCls(ph)) + (st.sel && st.sel.type === "opening" && st.sel.id === o.id ? " sel" : ""));
     });
-    plan.items.forEach(function (it) {
-      if (show[itemLayer(it)]) html += P.itemSVG(it, k, sel && sel.type === "item" && sel.id === it.id ? " sel" : "");
+    st.plan.items.forEach(function (it) {
+      if (show[itemLayer(it)]) html += P.itemSVG(it, k, st.sel && st.sel.type === "item" && st.sel.id === it.id ? " sel" : "");
     });
     if (show.electric) {
-      plan.wires.forEach(function (w) { // cable: arco suave entre las dos bocas
+      st.plan.wires.forEach(function (w) { // cable: arco suave entre las dos bocas
         const a = itemById(w.a), b = itemById(w.b), bend = 0.18;
         html += '<path class="wire" stroke-width="' + n1(1.5 * k) + '" d="M' + n1(a.x) + " " + n1(a.y) + "Q" + n1((a.x + b.x) / 2 - (b.y - a.y) * bend) + " " +
           n1((a.y + b.y) / 2 + (b.x - a.x) * bend) + " " + n1(b.x) + " " + n1(b.y) + '"/>';
       });
     }
-    if (ghost) html += '<g class="ghost">' + (ghost.wall ? openingSVG(ghost, k, " sel") : P.itemSVG(ghost, k, " sel")) + "</g>";
+    if (st.ghost) html += '<g class="ghost">' + (st.ghost.wall ? openingSVG(st.ghost, k, " sel") : P.itemSVG(st.ghost, k, " sel")) + "</g>";
 
     shown.rooms.forEach(function (room) {
       const both = show.names && show.areas;
@@ -421,11 +335,11 @@ function init(root) {
     // Etiquetas de carpintería (P1, V2…): las mismas que la planilla. Van sobre los muebles y, en un muro
     // exterior, del lado de afuera, donde no tapan nada.
     if (show.tags && brand.schedules && pv !== "actual") {
-      const codes = brand.schedules.build(plan).codeOf;
-      plan.openings.forEach(function (o) {
+      const codes = brand.schedules.build(st.plan).codeOf;
+      st.plan.openings.forEach(function (o) {
         const w = wallById(o.wall), code = codes[o.id];
         if (!w || !code) return;
-        const len = dist(w.a, w.b), c = P.at(w, o.t), off = (model.wallThick[o.wall] || 12) / 2 + 13 * k;
+        const len = dist(w.a, w.b), c = P.at(w, o.t), off = (st.model.wallThick[o.wall] || 12) / 2 + 13 * k;
         const nx = -(w.b.y - w.a.y) / len * off, ny = (w.b.x - w.a.x) / len * off;
         const inRoom = (q) => shown.rooms.some((r) => P.inside(r.points, q));
         const flip = inRoom({ x: c.x + nx, y: c.y + ny }) && !inRoom({ x: c.x - nx, y: c.y - ny }) ? -1 : 1;
@@ -435,43 +349,43 @@ function init(root) {
       });
     }
     if (show.dims) {
-      plan.walls.forEach(function (w) {
+      st.plan.walls.forEach(function (w) {
         const len = dist(w.a, w.b), ph = phaseOf[w.id];
         if (len / k < 46 || (pv === "actual" ? ph === "nueva" : pv === "obra" && ph === "demoler")) return;
-        const offset = (model.wallThick[w.id] || 12) / 2 + 11 * k;
+        const offset = (st.model.wallThick[w.id] || 12) / 2 + 11 * k;
         html += label((w.a.x + w.b.x) / 2 + (w.b.y - w.a.y) / len * offset, (w.a.y + w.b.y) / 2 - (w.b.x - w.a.x) / len * offset, "dim", E.fmt(len / 100, 2));
       });
     }
 
     if (show.notes) {
-      const chosen = sel && sel.type === "note" && noteById(sel.id);
-      plan.notes.forEach(function (nt) { html += (nt === chosen ? P.noteSVG(nt, k, true) : "") + P.noteSVG(nt, k, false); });
+      const chosen = st.sel && st.sel.type === "note" && noteById(st.sel.id);
+      st.plan.notes.forEach(function (nt) { html += (nt === chosen ? P.noteSVG(nt, k, true) : "") + P.noteSVG(nt, k, false); });
       if (chosen && chosen.kind !== "pen" && chosen.kind !== "text") { // los dos puntos que la definen se pueden arrastrar
         chosen.pts.forEach(function (p) { html += '<circle class="handle" cx="' + n1(p.x) + '" cy="' + n1(p.y) + '" r="' + n1(6 * k) + '" stroke-width="' + n1(2 * k) + '"/>'; });
       }
     }
-    if (drag && drag.type === "draw") html += P.noteSVG(drag.note, k, false);
-    if (sel && sel.type === "wall" && wallById(sel.id)) {
-      [wallById(sel.id).a, wallById(sel.id).b].forEach(function (p) {
+    if (st.drag && st.drag.type === "draw") html += P.noteSVG(st.drag.note, k, false);
+    if (st.sel && st.sel.type === "wall" && wallById(st.sel.id)) {
+      [wallById(st.sel.id).a, wallById(st.sel.id).b].forEach(function (p) {
         html += '<circle class="handle" cx="' + n1(p.x) + '" cy="' + n1(p.y) + '" r="' + n1(6 * k) + '" stroke-width="' + n1(2 * k) + '"/>';
       });
     }
-    if ((tool === "wall" || tool === "room") && hover) {
-      if (chain && tool === "wall") {
-        html += P.lineSVG(chain, hover, "preview", 3 * k, dash);
-        html += label(hover.x + 10 * k, hover.y - 10 * k, "dim preview-label", (typed || E.fmt(dist(chain, hover) / 100, 2)) + " m");
+    if ((st.tool === "wall" || st.tool === "room") && st.hover) {
+      if (st.chain && st.tool === "wall") {
+        html += P.lineSVG(st.chain, st.hover, "preview", 3 * k, dash);
+        html += label(st.hover.x + 10 * k, st.hover.y - 10 * k, "dim preview-label", (st.typed || E.fmt(dist(st.chain, st.hover) / 100, 2)) + " m");
       }
-      if (chain && tool === "room") {
-        html += '<rect class="preview" fill="none" stroke-width="' + n1(3 * k) + '"' + dash + ' x="' + Math.min(chain.x, hover.x) + '" y="' + Math.min(chain.y, hover.y) +
-          '" width="' + Math.abs(hover.x - chain.x) + '" height="' + Math.abs(hover.y - chain.y) + '"/>';
-        html += label(hover.x + 10 * k, hover.y - 10 * k, "dim preview-label",
-          E.fmt(Math.abs(hover.x - chain.x) / 100, 2) + " × " + E.fmt(Math.abs(hover.y - chain.y) / 100, 2) + " m");
+      if (st.chain && st.tool === "room") {
+        html += '<rect class="preview" fill="none" stroke-width="' + n1(3 * k) + '"' + dash + ' x="' + Math.min(st.chain.x, st.hover.x) + '" y="' + Math.min(st.chain.y, st.hover.y) +
+          '" width="' + Math.abs(st.hover.x - st.chain.x) + '" height="' + Math.abs(st.hover.y - st.chain.y) + '"/>';
+        html += label(st.hover.x + 10 * k, st.hover.y - 10 * k, "dim preview-label",
+          E.fmt(Math.abs(st.hover.x - st.chain.x) / 100, 2) + " × " + E.fmt(Math.abs(st.hover.y - st.chain.y) / 100, 2) + " m");
       }
-      html += '<circle class="cursor" cx="' + n1(hover.x) + '" cy="' + n1(hover.y) + '" r="' + n1(4 * k) + '"/>';
+      html += '<circle class="cursor" cx="' + n1(st.hover.x) + '" cy="' + n1(st.hover.y) + '" r="' + n1(4 * k) + '"/>';
     }
-    if (sketch) {
-      sketch.segments.forEach(function (s) { html += P.lineSVG(sketchPoint(s.x1, s.y1), sketchPoint(s.x2, s.y2), "sketch-wall", 5 * k); });
-      sketch.openings.forEach(function (o) { // vista previa de lo detectado: hueco, y además hoja y arco en las puertas
+    if (st.sketch) {
+      st.sketch.segments.forEach(function (s) { html += P.lineSVG(sketchPoint(s.x1, s.y1), sketchPoint(s.x2, s.y2), "sketch-wall", 5 * k); });
+      st.sketch.openings.forEach(function (o) { // vista previa de lo detectado: hueco, y además hoja y arco en las puertas
         const half = o.w / 2, a = o.horizontal ? sketchPoint(o.x - half, o.y) : sketchPoint(o.x, o.y - half), b = o.horizontal ? sketchPoint(o.x + half, o.y) : sketchPoint(o.x, o.y + half);
         html += P.lineSVG(a, b, o.kind === "window" ? "sketch-window" : "gap", 7 * k);
         if (o.kind !== "door") return;
@@ -481,7 +395,7 @@ function init(root) {
           " 0 0 " + (cross > 0 ? 1 : 0) + " " + n1(far.x) + " " + n1(far.y) + '"/>';
       });
     }
-    const roofShape = show.roof && P.roofShape(plan);
+    const roofShape = show.roof && P.roofShape(st.plan);
     if (roofShape) { // contorno del alero y cumbrera
       html += '<rect class="roof-outline" x="' + roofShape.x0 + '" y="' + roofShape.y0 + '" width="' + (roofShape.x1 - roofShape.x0) + '" height="' + (roofShape.y1 - roofShape.y0) + '" stroke-width="' + n1(1.5 * k) + '"' + dash + "/>";
       if (roofShape.type === "tejas") {
@@ -489,45 +403,45 @@ function init(root) {
         html += roofShape.alongX ? P.lineSVG({ x: roofShape.x0, y: ym }, { x: roofShape.x1, y: ym }, "roof-outline", 1.5 * k) : P.lineSVG({ x: xm, y: roofShape.y0 }, { x: xm, y: roofShape.y1 }, "roof-outline", 1.5 * k);
       }
     }
-    if (plan.section) {
-      html += P.lineSVG(plan.section.a, plan.section.b, "section-line", 2 * k, ' stroke-dasharray="' + n1(14 * k) + " " + n1(5 * k) + " " + n1(3 * k) + " " + n1(5 * k) + '"') +
-        label(plan.section.a.x, plan.section.a.y - 14 * k, "section-tag", "A") + label(plan.section.b.x, plan.section.b.y - 14 * k, "section-tag", "A");
+    if (st.plan.section) {
+      html += P.lineSVG(st.plan.section.a, st.plan.section.b, "section-line", 2 * k, ' stroke-dasharray="' + n1(14 * k) + " " + n1(5 * k) + " " + n1(3 * k) + " " + n1(5 * k) + '"') +
+        label(st.plan.section.a.x, st.plan.section.a.y - 14 * k, "section-tag", "A") + label(st.plan.section.b.x, st.plan.section.b.y - 14 * k, "section-tag", "A");
     }
-    if (hover && chain && tool === "surface") {
-      html += '<rect class="preview" stroke-width="' + n1(3 * k) + '"' + dash + ' x="' + Math.min(chain.x, hover.x) + '" y="' + Math.min(chain.y, hover.y) +
-        '" width="' + Math.abs(hover.x - chain.x) + '" height="' + Math.abs(hover.y - chain.y) + '"/>';
+    if (st.hover && st.chain && st.tool === "surface") {
+      html += '<rect class="preview" stroke-width="' + n1(3 * k) + '"' + dash + ' x="' + Math.min(st.chain.x, st.hover.x) + '" y="' + Math.min(st.chain.y, st.hover.y) +
+        '" width="' + Math.abs(st.hover.x - st.chain.x) + '" height="' + Math.abs(st.hover.y - st.chain.y) + '"/>';
     }
-    if (hover && chain && tool === "section") html += P.lineSVG(chain, hover, "preview", 2 * k, dash);
-    if (hover && chain && tool === "arc") {
-      const pts = arcEnd ? P.arcPoints(chain, arcEnd, hover) || [chain, arcEnd] : [chain, hover];
+    if (st.hover && st.chain && st.tool === "section") html += P.lineSVG(st.chain, st.hover, "preview", 2 * k, dash);
+    if (st.hover && st.chain && st.tool === "arc") {
+      const pts = st.arcEnd ? P.arcPoints(st.chain, st.arcEnd, st.hover) || [st.chain, st.arcEnd] : [st.chain, st.hover];
       html += '<polyline class="preview" stroke-width="' + n1(3 * k) + '"' + dash + ' points="' + pts.map((q) => n1(q.x) + "," + n1(q.y)).join(" ") + '"/>';
     }
-    if (hover && wireFrom && tool === "wire" && itemById(wireFrom)) html += P.lineSVG(itemById(wireFrom), hover, "preview", 2 * k, dash);
-    if (drag && drag.type === "box") { // recuadro de selección
-      html += '<rect class="select-box" stroke-width="' + n1(k) + '" x="' + n1(Math.min(drag.start.x, drag.cur.x)) + '" y="' + n1(Math.min(drag.start.y, drag.cur.y)) +
-        '" width="' + n1(Math.abs(drag.cur.x - drag.start.x)) + '" height="' + n1(Math.abs(drag.cur.y - drag.start.y)) + '"/>';
+    if (st.hover && st.wireFrom && st.tool === "wire" && itemById(st.wireFrom)) html += P.lineSVG(itemById(st.wireFrom), st.hover, "preview", 2 * k, dash);
+    if (st.drag && st.drag.type === "box") { // recuadro de selección
+      html += '<rect class="select-box" stroke-width="' + n1(k) + '" x="' + n1(Math.min(st.drag.start.x, st.drag.cur.x)) + '" y="' + n1(Math.min(st.drag.start.y, st.drag.cur.y)) +
+        '" width="' + n1(Math.abs(st.drag.cur.x - st.drag.start.x)) + '" height="' + n1(Math.abs(st.drag.cur.y - st.drag.start.y)) + '"/>';
     }
-    if (measure) {
-      const end = measure.b || hover;
-      html += '<circle class="cursor" cx="' + n1(measure.a.x) + '" cy="' + n1(measure.a.y) + '" r="' + n1(4 * k) + '"/>';
+    if (st.measure) {
+      const end = st.measure.b || st.hover;
+      html += '<circle class="cursor" cx="' + n1(st.measure.a.x) + '" cy="' + n1(st.measure.a.y) + '" r="' + n1(4 * k) + '"/>';
       if (end) {
-        html += P.lineSVG(measure.a, end, "preview", 2 * k, dash) + '<circle class="cursor" cx="' + n1(end.x) + '" cy="' + n1(end.y) + '" r="' + n1(4 * k) + '"/>' +
-          label((measure.a.x + end.x) / 2, (measure.a.y + end.y) / 2 - 12 * k, "dim measure-label", E.fmt(dist(measure.a, end) / 100, 2) + " m");
+        html += P.lineSVG(st.measure.a, end, "preview", 2 * k, dash) + '<circle class="cursor" cx="' + n1(end.x) + '" cy="' + n1(end.y) + '" r="' + n1(4 * k) + '"/>' +
+          label((st.measure.a.x + end.x) / 2, (st.measure.a.y + end.y) / 2 - 12 * k, "dim measure-label", E.fmt(dist(st.measure.a, end) / 100, 2) + " m");
       }
     }
-    svg.innerHTML = html + (presenting ? "" : rulersSVG(k));
+    svg.innerHTML = html + (st.presenting ? "" : rulersSVG(k));
 
     const bar = STEPS.find((s) => s / k >= 70) || STEPS[STEPS.length - 1];
     scaleBar.style.width = Math.round(bar / k) + "px";
     scaleBar.textContent = E.fmt(bar / 100, 1) + " m";
     zoomOut.textContent = Math.round(100 / k) + "%";
-    emptyBox.hidden = plan.walls.length > 0 || !!chain || !!sketch;
+    emptyBox.hidden = st.plan.walls.length > 0 || !!st.chain || !!st.sketch;
     // Planta vacía pero con otra dibujada: se avisa, porque el cómputo sigue sumando la otra.
-    const drawn = P.levelsOf(plan).filter((level, i) => i !== model.level && level.walls.length).map((level) => level.name.toLowerCase());
+    const drawn = P.levelsOf(st.plan).filter((level, i) => i !== st.model.level && level.walls.length).map((level) => level.name.toLowerCase());
     emptyNote.hidden = !drawn.length;
     emptyNote.textContent = drawn.length ? "Esta planta está vacía, pero el plano tiene dibujada la " + drawn.join(" y la ") + ". Cambiá de planta con el selector de arriba; el cómputo suma todas." : "";
-    const cutSVG = P.sectionSVG(plan);
-    sectionBox.hidden = !plan.section;
+    const cutSVG = P.sectionSVG(st.plan);
+    sectionBox.hidden = !st.plan.section;
     sectionOut.innerHTML = cutSVG || '<p class="ws-tip">La línea de corte no atraviesa ningún muro de la vivienda.</p>';
     renderResult();
   }
@@ -536,56 +450,56 @@ function init(root) {
     const stat = (m) => '<div class="stat"><span class="stat-label">' + escHTML(m.label) + '</span><span class="stat-value">' +
       escHTML(m.value) + '</span><span class="stat-unit">' + escHTML(m.unit) + "</span></div>";
     const row = (r) => "<div><dt>" + escHTML(r.label) + "</dt><dd>" + escHTML(r.value) + "</dd></div>";
-    const lines = [(plan.name || UNTITLED) + " — cómputo de materiales"];
-    model.main.forEach(function (m) { lines.push("• " + m.label + ": " + m.value + " " + m.unit); });
-    model.sections.forEach(function (s) {
+    const lines = [(st.plan.name || UNTITLED) + " — cómputo de materiales"];
+    st.model.main.forEach(function (m) { lines.push("• " + m.label + ": " + m.value + " " + m.unit); });
+    st.model.sections.forEach(function (s) {
       lines.push("", s.title.toUpperCase());
       s.rows.forEach(function (r) { lines.push("• " + r.label + ": " + r.value); });
     });
-    if (model.checks.length) {
+    if (st.model.checks.length) {
       lines.push("", "VERIFICACIÓN CIRSOC");
-      model.checks.forEach(function (c) { lines.push((c.state === "ok" ? "✓ " : c.state === "fail" ? "✗ " : "· ") + c.text + " [" + c.ref + "]"); });
+      st.model.checks.forEach(function (c) { lines.push((c.state === "ok" ? "✓ " : c.state === "fail" ? "✗ " : "· ") + c.text + " [" + c.ref + "]"); });
     }
     lines.push("", "Calculado con " + (brand.name || "") + " — " + location.href);
-    text = lines.join("\n");
+    st.text = lines.join("\n");
 
-    const failed = model.checks.filter((c) => c.state === "fail").length;
-    checksCount.textContent = !model.checks.length ? "" : failed ? failed + (failed === 1 ? " observación" : " observaciones") : "sin observaciones";
+    const failed = st.model.checks.filter((c) => c.state === "fail").length;
+    checksCount.textContent = !st.model.checks.length ? "" : failed ? failed + (failed === 1 ? " observación" : " observaciones") : "sin observaciones";
     checksCount.className = failed ? "is-fail" : "is-ok";
-    checksOut.innerHTML = model.checks.length ? '<ul class="checks">' + model.checks.map(function (c) {
+    checksOut.innerHTML = st.model.checks.length ? '<ul class="checks">' + st.model.checks.map(function (c) {
       return '<li class="check is-' + c.state + '"><span class="check-mark" aria-hidden="true">' + (c.state === "ok" ? "✓" : c.state === "fail" ? "✗" : "i") + '</span><span><span class="check-state">' +
         (c.state === "ok" ? "Cumple: " : c.state === "fail" ? "No cumple: " : "Nota: ") + "</span>" + escHTML(c.text) + ' <small class="check-ref">' + escHTML(c.ref) + "</small></span></li>";
     }).join("") + '</ul><p class="ws-tip">Verificación automática de apoyo sobre el texto de los reglamentos publicados por el INTI. No reemplaza el proyecto ni la firma de un profesional matriculado.</p>'
       : '<p class="ws-tip">Dibujá los muros para verificarlos contra los reglamentos CIRSOC.</p>';
 
-    out.innerHTML = '<div class="result-main">' + model.main.map(stat).join("") + "</div>" +
-      model.sections.map(function (s) {
+    out.innerHTML = '<div class="result-main">' + st.model.main.map(stat).join("") + "</div>" +
+      st.model.sections.map(function (s) {
         return '<h3 class="result-section">' + escHTML(s.title) + '</h3><dl class="result-rows">' + s.rows.map(row).join("") + "</dl>";
       }).join("") +
-      '<ul class="result-notes">' + model.notes.map((n) => "<li>" + escHTML(n) + "</li>").join("") + "</ul>" +
+      '<ul class="result-notes">' + st.model.notes.map((n) => "<li>" + escHTML(n) + "</li>").join("") + "</ul>" +
       '<div class="result-actions"><button type="button" class="btn" data-copy>Copiar cómputo</button>' +
       '<button type="button" class="btn btn-ghost" data-action="schedules">Planillas</button>' +
       '<button type="button" class="btn btn-ghost" data-action="budget">Presupuesto</button>' +
-      '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(text) + '">Enviar por WhatsApp</a></div>';
+      '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(st.text) + '">Enviar por WhatsApp</a></div>';
   }
 
   // ---------- Tipos de muro ----------
   function defaultType(cls) {
-    const types = P.wallTypesOf(plan), lib = P.wallTypesOf({});
-    return types[(plan.settings || {})[cls]] || types[P.DEFAULTS[cls]] || lib[P.DEFAULTS[cls]];
+    const types = P.wallTypesOf(st.plan), lib = P.wallTypesOf({});
+    return types[(st.plan.settings || {})[cls]] || types[P.DEFAULTS[cls]] || lib[P.DEFAULTS[cls]];
   }
   const thickText = (t) => E.fmt(P.typeThick(t, "ext"), 1) + " cm como exterior · " + E.fmt(P.typeThick(t, "int"), 1) + " cm como interior";
   // Todos los muros del plano: plantas y opciones de diseño, con la planta activa tomada de los campos de trabajo.
   function everyWall() {
-    const list = plan.walls.slice();
-    (plan.levels || []).forEach(function (lv, i) { if (i !== (plan.level || 0)) list.push.apply(list, lv.walls || []); });
-    (plan.variants || []).forEach(function (v, i) {
-      if (i === (plan.variant || 0)) return;
+    const list = st.plan.walls.slice();
+    (st.plan.levels || []).forEach(function (lv, i) { if (i !== (st.plan.level || 0)) list.push.apply(list, lv.walls || []); });
+    (st.plan.variants || []).forEach(function (v, i) {
+      if (i === (st.plan.variant || 0)) return;
       (v.levels || []).forEach(function (lv) { list.push.apply(list, lv.walls || []); });
     });
     return list;
   }
-  function ensureTypes() { if (!Array.isArray(plan.wallTypes) || !plan.wallTypes.length) plan.wallTypes = P.wallTypeList(plan); }
+  function ensureTypes() { if (!Array.isArray(st.plan.wallTypes) || !st.plan.wallTypes.length) st.plan.wallTypes = P.wallTypeList(st.plan); }
 
   const LAYER_COLORS = { azotado: "#4f9bd9", grueso: "#8d8d8d", fino: "#d9d9d9" };
   // Corte del muro, capa por capa y a escala: de la cara exterior (izquierda) a la interior.
@@ -615,14 +529,14 @@ function init(root) {
     ["ext", "int"].forEach(function (cls) {
       const el = settings.elements[cls];
       if (!el) return;
-      el.innerHTML = P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '">' + escHTML(t.name) + "</option>").join("");
+      el.innerHTML = P.wallTypeList(st.plan).map((t) => '<option value="' + escHTML(t.id) + '">' + escHTML(t.name) + "</option>").join("");
       el.value = defaultType(cls).id;
     });
     const box = $("[data-types]", root);
     if (!box) return;
-    const list = P.wallTypeList(plan);
-    if (!list.some((t) => t.id === editType)) editType = list[0].id;
-    const t = list.find((x) => x.id === editType), used = everyWall().filter((w) => w.type === t.id).length;
+    const list = P.wallTypeList(st.plan);
+    if (!list.some((t) => t.id === st.editType)) st.editType = list[0].id;
+    const t = list.find((x) => x.id === st.editType), used = everyWall().filter((w) => w.type === t.id).length;
     const isDefault = ["ext", "int"].filter((c) => defaultType(c).id === t.id);
     const num = (face, layer, labelText) => "<label>" + labelText + ' (cm) <input type="text" inputmode="decimal" autocomplete="off" data-layer-cm="' + face + "." + layer +
       '" value="' + E.fmt(t[face][layer], 1) + '"></label>';
@@ -647,7 +561,7 @@ function init(root) {
   function editTypeWith(fn) {
     pushHistory();
     ensureTypes();
-    const t = plan.wallTypes.find((x) => x.id === editType);
+    const t = st.plan.wallTypes.find((x) => x.id === st.editType);
     if (!t) return;
     fn(t);
     Object.assign(t, P.cleanType(t));
@@ -657,7 +571,7 @@ function init(root) {
   }
   function typeInput(e) {
     const el = e.target;
-    if (el.matches("[data-type-pick]")) { editType = el.value; renderTypes(); return; }
+    if (el.matches("[data-type-pick]")) { st.editType = el.value; renderTypes(); return; }
     if (e.type !== "change") return; // nombre y espesores se toman al confirmar, para no rehacer el panel mientras se tipea
     if (el.matches("[data-type-name]")) {
       const name = el.value.trim();
@@ -683,35 +597,35 @@ function init(root) {
     const field = (name, labelText, value) => "<label>" + labelText + ' <input name="' + name + '" type="text" inputmode="decimal" autocomplete="off" value="' +
       E.fmt(value, 2) + '"> m</label>';
     const button = (action, labelText) => '<button type="button" class="btn btn-ghost" data-action="' + action + '">' + labelText + "</button>";
-    const typeOptions = (current) => P.wallTypeList(plan).map((t) => '<option value="' + escHTML(t.id) + '"' + (t.id === current ? " selected" : "") + ">" +
+    const typeOptions = (current) => P.wallTypeList(st.plan).map((t) => '<option value="' + escHTML(t.id) + '"' + (t.id === current ? " selected" : "") + ">" +
       escHTML(t.name) + "</option>").join("");
     const swatches = (current, first) => '<span class="swatches" role="group" aria-label="Color">' + [""].concat(P.PALETTE).map((c) => '<button type="button" class="swatch" data-swatch="' + c +
       '" aria-pressed="' + ((current || "") === c) + '" title="' + (c ? COLOR_NAMES[c] : first) + '" aria-label="' + (c ? COLOR_NAMES[c] : first) + '"' + (c ? ' style="--sw:' + c + '"' : "") + "></button>").join("") + "</span>";
     const weight = (name, current, isText) => "<label>" + (isText ? "Tamaño" : "Grosor") + ' <select name="' + name + '">' + [["s", isText ? "Chico" : "Fino"], ["m", "Medio"], ["l", isText ? "Grande" : "Grueso"]]
       .map((o) => '<option value="' + o[0] + '"' + ((current || "m") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
-    const drawing = tool === "wall" || tool === "room" || tool === "arc", annotating = !!NOTES[tool];
+    const drawing = st.tool === "wall" || st.tool === "room" || st.tool === "arc", annotating = !!NOTES[st.tool];
     inspector.hidden = !item && !drawing && !annotating;
     if (!item && annotating) { // anotando: color y grosor de lo que se dibuje a continuación
-      inspector.innerHTML = "<strong>" + escHTML(NOTES[tool]) + "</strong>" + swatches(nextNote.color, "Tinta") + weight("nextW", nextNote.w, tool === "text");
+      inspector.innerHTML = "<strong>" + escHTML(NOTES[st.tool]) + "</strong>" + swatches(st.nextNote.color, "Tinta") + weight("nextW", st.nextNote.w, st.tool === "text");
       return;
     }
     if (!item) { // dibujando: se elige el ladrillo de los muros que vienen
       if (drawing) {
-        const t = P.wallTypesOf(plan)[nextType];
-        inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(nextType) +
+        const t = P.wallTypesOf(st.plan)[st.nextType];
+        inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(st.nextType) +
           "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>" +
-          '<label>Fase <select name="nextPhase"><option value="">A construir</option><option value="existente"' + (nextPhase === "existente" ? " selected" : "") +
+          '<label>Fase <select name="nextPhase"><option value="">A construir</option><option value="existente"' + (st.nextPhase === "existente" ? " selected" : "") +
           ">Existente (relevamiento)</option></select></label>";
       }
       return;
     }
-    if (sel.type === "note") {
+    if (st.sel.type === "note") {
       inspector.innerHTML = "<strong>" + escHTML(NOTES[item.kind]) + "</strong>" +
         (item.kind === "text" ? '<label>Texto <input name="text" type="text" autocomplete="off" maxlength="120" value="' + escHTML(item.text) + '"></label>' : "") +
         swatches(item.color, "Tinta") + weight("w", item.w, item.kind === "text") + button("duplicate", "Duplicar") + button("delete", "Borrar");
       return;
     }
-    if (sel.type === "walls") {
+    if (st.sel.type === "walls") {
       const types = Object.keys(item.reduce((set, w) => { set[w.type || ""] = true; return set; }, {})), mixed = types.length > 1;
       inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Tipo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
         '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label>" +
@@ -719,16 +633,16 @@ function init(root) {
         E.fmt(item.reduce((sum, w) => sum + dist(w.a, w.b), 0) / 100, 2) + " m en total</span>" + button("delete", "Borrar");
       return;
     }
-    if (sel.type === "wall") {
+    if (st.sel.type === "wall") {
       // Clase (exterior o interior) detectada sola, y tipo que le tocaría por defecto.
-      const edge = model.edges.find((e) => e.wall === item.id) || { cls: "ext" }, outside = edge.cls !== "int";
-      const types = P.wallTypesOf(plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
+      const edge = st.model.edges.find((e) => e.wall === item.id) || { cls: "ext" }, outside = edge.cls !== "int";
+      const types = P.wallTypesOf(st.plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
       inspector.innerHTML = "<strong>" + (outside ? "Muro exterior" : "Muro interior") + "</strong>" + field("length", "Largo", dist(item.a, item.b) / 100) +
         '<label>Tipo <select name="type"><option value="">Por defecto: ' + escHTML(usual.name) + "</option>" + typeOptions(item.type) + "</select></label>" +
         "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" + phaseSelect(item.phase) +
         '<button type="button" class="btn btn-ghost" data-action="type-edit" data-type="' + escHTML(t.id) + '">Editar el tipo</button>' +
         button("split", "Dividir en dos") + button("delete", "Borrar");
-    } else if (sel.type === "opening") {
+    } else if (st.sel.type === "opening") {
       const def = P.typeOf(item), host = wallById(item.wall), hostPhase = host ? P.wallPhase(host) : "nueva";
       // En un muro existente la abertura puede quedar, retirarse o ser un vano nuevo; en un muro nuevo siempre es nueva.
       const phaseBox = hostPhase === "existente" ? '<label>Fase <select name="phase">' + [["", "Existente, como su muro"], ["nueva", "Vano nuevo (a construir)"], ["demoler", "A retirar"]]
@@ -737,10 +651,10 @@ function init(root) {
       inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) + phaseBox +
         (/swing|double|garage/.test(def.symbol) ? button("flip-side", "Cambiar lado") : "") +
         (def.symbol === "swing" ? button("flip-hinge", "Cambiar bisagra") : "") + button("duplicate", "Duplicar") + button("delete", "Borrar");
-    } else if (sel.type === "surface") {
+    } else if (st.sel.type === "surface") {
       inspector.innerHTML = '<strong>Exterior</strong><label>Tipo <select name="type">' + Object.keys(D.surfaces).map((key) => '<option value="' + key + '"' + (key === item.type ? " selected" : "") + ">" +
         escHTML(D.surfaces[key].label) + "</option>").join("") + "</select></label>" + field("w", "Ancho", item.w / 100) + field("h", "Largo", item.h / 100) + button("delete", "Borrar");
-    } else if (sel.type === "item") {
+    } else if (st.sel.type === "item") {
       const own = D.items[item.type].custom;
       inspector.innerHTML = "<strong>" + escHTML(D.items[item.type].label) + "</strong>" +
         (own ? '<label>Nombre <input name="name" type="text" autocomplete="off" maxlength="40" value="' + escHTML(item.name || "") + '"></label>' : "") +
@@ -758,89 +672,89 @@ function init(root) {
   }
 
   function setTool(name, type, own) {
-    tool = name; pick = type || null; stamp = own || null; chain = null; hover = null; ghost = null; typed = ""; measure = null; arcEnd = null; wireFrom = null;
-    if (name !== "select" && name !== "pan") { sel = null; multi = false; } // al empezar a dibujar se suelta la selección
+    st.tool = name; st.pick = type || null; st.stamp = own || null; st.chain = null; st.hover = null; st.ghost = null; st.typed = ""; st.measure = null; st.arcEnd = null; st.wireFrom = null;
+    if (name !== "select" && name !== "pan") { st.sel = null; st.multi = false; } // al empezar a dibujar se suelta la selección
     $$("[data-tool]", root).forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-tool") === name)));
-    $('[data-action="multi"]', root).setAttribute("aria-pressed", String(multi));
+    $('[data-action="multi"]', root).setAttribute("aria-pressed", String(st.multi));
     syncPicks();
-    hint.textContent = HINTS[name === "select" && multi ? "multi" : name];
+    hint.textContent = HINTS[name === "select" && st.multi ? "multi" : name];
     svg.setAttribute("data-tool", NOTES[name] ? "note" : name);
-    if (NOTES[name] && !layers().notes) { plan.layers = Object.assign(layers(), { notes: true }); save(); syncSettings(); } // no se anota sobre una capa oculta
+    if (NOTES[name] && !layers().notes) { st.plan.layers = Object.assign(layers(), { notes: true }); save(); syncSettings(); } // no se anota sobre una capa oculta
     render();
     renderInspector();
   }
 
   // ---------- Acciones ----------
   function removeSelection() {
-    if (!sel || sel.type === "room") return;
+    if (!st.sel || st.sel.type === "room") return;
     pushHistory();
-    if (sel.type === "wall" || sel.type === "walls") { const gone = pickedWalls(); plan.walls = plan.walls.filter((w) => gone.indexOf(w.id) < 0); }
-    else if (sel.type === "item") plan.items = plan.items.filter((it) => it.id !== sel.id);
-    else if (sel.type === "surface") plan.surfaces = plan.surfaces.filter((sf) => sf.id !== sel.id);
-    else if (sel.type === "note") plan.notes = plan.notes.filter((nt) => nt.id !== sel.id);
-    else plan.openings = plan.openings.filter((o) => o.id !== sel.id);
+    if (st.sel.type === "wall" || st.sel.type === "walls") { const gone = pickedWalls(); st.plan.walls = st.plan.walls.filter((w) => gone.indexOf(w.id) < 0); }
+    else if (st.sel.type === "item") st.plan.items = st.plan.items.filter((it) => it.id !== st.sel.id);
+    else if (st.sel.type === "surface") st.plan.surfaces = st.plan.surfaces.filter((sf) => sf.id !== st.sel.id);
+    else if (st.sel.type === "note") st.plan.notes = st.plan.notes.filter((nt) => nt.id !== st.sel.id);
+    else st.plan.openings = st.plan.openings.filter((o) => o.id !== st.sel.id);
     commit(null);
   }
   // No agrega una pared que ya está dibujada encima de otra (pasa al dibujar ambientes pegados).
   function addWalls(list) {
     const onWall = (w, p) => { const h = project(w, p); return h.d < 0.5 && h.raw > -1e-6 && h.raw < 1 + 1e-6; };
-    const fresh = list.filter((s) => dist(s[0], s[1]) >= GRID && !plan.walls.some((w) => onWall(w, s[0]) && onWall(w, s[1])));
+    const fresh = list.filter((s) => dist(s[0], s[1]) >= GRID && !st.plan.walls.some((w) => onWall(w, s[0]) && onWall(w, s[1])));
     if (!fresh.length) return;
     pushHistory();
-    fresh.forEach(function (s) { plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, nextType ? { type: nextType } : {}, nextPhase ? { phase: nextPhase } : {})); });
+    fresh.forEach(function (s) { st.plan.walls.push(Object.assign({ id: nextId(), a: copy(s[0]), b: copy(s[1]) }, st.nextType ? { type: st.nextType } : {}, st.nextPhase ? { phase: st.nextPhase } : {})); });
   }
   function addWallPoint(p) {
-    typed = "";
-    if (!chain) { chain = p; render(); return; }
-    if (dist(chain, p) < GRID) return;
-    const closes = plan.walls.some((w) => same(w.a, p) || same(w.b, p));
-    addWalls([[chain, p]]);
-    chain = closes ? null : p; // al llegar a otra pared la cadena se corta sola
+    st.typed = "";
+    if (!st.chain) { st.chain = p; render(); return; }
+    if (dist(st.chain, p) < GRID) return;
+    const closes = st.plan.walls.some((w) => same(w.a, p) || same(w.b, p));
+    addWalls([[st.chain, p]]);
+    st.chain = closes ? null : p; // al llegar a otra pared la cadena se corta sola
     commit(null);
   }
   function addRoomPoint(p) {
-    if (!chain) { chain = p; render(); return; }
-    if (Math.abs(p.x - chain.x) < GRID || Math.abs(p.y - chain.y) < GRID) return;
-    const a = chain, b = { x: p.x, y: a.y }, c = p, d = { x: a.x, y: p.y };
+    if (!st.chain) { st.chain = p; render(); return; }
+    if (Math.abs(p.x - st.chain.x) < GRID || Math.abs(p.y - st.chain.y) < GRID) return;
+    const a = st.chain, b = { x: p.x, y: a.y }, c = p, d = { x: a.x, y: p.y };
     addWalls([[a, b], [b, c], [c, d], [d, a]]);
-    chain = null;
+    st.chain = null;
     commit(null);
   }
   function addOpening(hit, type) {
     pushHistory();
     const o = P.opening(nextId(), hit.wall.id, hit.t, type);
     o.t = clampT(o, o.t);
-    plan.openings.push(o);
-    ghost = null;
+    st.plan.openings.push(o);
+    st.ghost = null;
     commit({ type: "opening", id: o.id });
   }
   function changeOpening(change) {
-    const o = openingById(sel.id);
+    const o = openingById(st.sel.id);
     pushHistory();
     change(o);
-    commit(sel);
+    commit(st.sel);
   }
-  const center = () => ({ x: view.x + view.w / 2, y: view.y + view.h / 2 });
+  const center = () => ({ x: st.view.x + st.view.w / 2, y: st.view.y + st.view.h / 2 });
   // Nombre, piso o color de un ambiente: se guardan en una etiqueta ubicada dentro de él.
   function tagRoom(field, value) {
-    const room = roomAt(sel), old = (plan.labels || []).find((l) => P.inside(room.points, l)) || {};
-    const tag = { x: sel.x, y: sel.y, name: old.name || "", floor: old.floor, color: old.color };
+    const room = roomAt(st.sel), old = (st.plan.labels || []).find((l) => P.inside(room.points, l)) || {};
+    const tag = { x: st.sel.x, y: st.sel.y, name: old.name || "", floor: old.floor, color: old.color };
     tag[field] = value;
     pushHistory();
-    plan.labels = (plan.labels || []).filter((l) => !P.inside(room.points, l));
-    plan.labels.push(tag);
-    commit(sel);
+    st.plan.labels = (st.plan.labels || []).filter((l) => !P.inside(room.points, l));
+    st.plan.labels.push(tag);
+    commit(st.sel);
   }
   // Un toque en la paleta: pinta la anotación o el ambiente elegido, o fija el color de las anotaciones que vienen.
   function setColor(color) {
-    if (sel && sel.type === "note") { pushHistory(); noteById(sel.id).color = color; commit(sel); }
-    else if (sel && sel.type === "room") tagRoom("color", color);
-    else { nextNote.color = color; renderInspector(); }
+    if (st.sel && st.sel.type === "note") { pushHistory(); noteById(st.sel.id).color = color; commit(st.sel); }
+    else if (st.sel && st.sel.type === "room") tagRoom("color", color);
+    else { st.nextNote.color = color; renderInspector(); }
   }
 
   // ---------- Opciones de diseño: selector y tabla que las compara ----------
   function renderVariants() {
-    const list = plan.variants || [], many = list.length > 1, current = Math.min(plan.variant || 0, Math.max(0, list.length - 1));
+    const list = st.plan.variants || [], many = list.length > 1, current = Math.min(st.plan.variant || 0, Math.max(0, list.length - 1));
     $$("[data-variant]", root).forEach(function (el) {
       el.hidden = !many;
       el.innerHTML = list.map((v, i) => '<option value="' + i + '"' + (i === current ? " selected" : "") + ">Opción " + OPTIONS[i] + "</option>").join("");
@@ -848,8 +762,8 @@ function init(root) {
     compareBox.hidden = !many;
     if (!many) return;
     const cols = list.map(function (v, i) {
-      if (i === current) return model.main;
-      const lv = v.levels[Math.min(v.level || 0, v.levels.length - 1)], other = Object.assign({}, plan, { levels: v.levels, level: v.level || 0, section: v.section });
+      if (i === current) return st.model.main;
+      const lv = v.levels[Math.min(v.level || 0, v.levels.length - 1)], other = Object.assign({}, st.plan, { levels: v.levels, level: v.level || 0, section: v.section });
       P.LEVEL_FIELDS.forEach(function (f) { other[f] = lv[f] || []; });
       return P.compute(other).main;
     });
@@ -861,7 +775,7 @@ function init(root) {
 
   // ---------- Modo presentación ----------
   function present(on) {
-    presenting = on;
+    st.presenting = on;
     root.classList.toggle("is-presenting", on);
     document.documentElement.classList.toggle("is-presenting", on);
     try {
@@ -871,128 +785,74 @@ function init(root) {
     setTool(on ? "pan" : "select");
     setTimeout(function () { fit(); render(); }, 120); // el lienzo ya tomó su tamaño nuevo
   }
-  document.addEventListener("fullscreenchange", function () { if (presenting && !document.fullscreenElement) present(false); });
+  document.addEventListener("fullscreenchange", function () { if (st.presenting && !document.fullscreenElement) present(false); });
 
-  // ---------- Archivos: exportar, abrir e imagen de referencia ----------
-  const fileName = (ext) => planFileName(plan.name, ext);
-  function exportDrawing(asImage) {
-    if (!plan.walls.length) { hint.textContent = "Todavía no hay nada dibujado para exportar."; return; }
-    const drawing = P.staticSVG(plan, true);
-    if (!asImage) { download(fileName("svg"), new Blob([drawing.svg], { type: "image/svg+xml" })); return; }
-    const image = new Image();
-    image.onload = function () {
-      const canvas = document.createElement("canvas");
-      canvas.width = drawing.width; canvas.height = drawing.height;
-      canvas.getContext("2d").drawImage(image, 0, 0, drawing.width, drawing.height);
-      canvas.toBlob(function (blob) { download(fileName("png"), blob); }, "image/png");
-    };
-    image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(drawing.svg);
-  }
-  function openPlanFile(file) {
-    const reader = new FileReader();
-    reader.onload = function () {
-      let opened = null, read = null;
-      try { opened = normalize(JSON.parse(reader.result)); } catch (e) { /* no es JSON */ }
-      if (!opened && brand.cad) { // un dibujo de AutoCAD: se deducen los muros y las aberturas
-        try {
-          // Si el archivo trae cortes y vistas, se toma el dibujo que parece la planta; los cercos quedan afuera.
-          const drawing = brand.cad.read(reader.result), sh = brand.cad.sheets ? brand.cad.sheets(drawing) : { planta: -1 };
-          // La planta de techos y los cortes del mismo archivo dan las alturas de las losas y los parapetos.
-          const techo = sh.planta >= 0 && sh.regions.find(function (r) { return r.kind === "techo"; }), levels = [];
-          if (techo) sh.regions.forEach(function (r) { if (r.kind === "corte" || r.kind === "vista") brand.cad.levelsIn(drawing, r.box).forEach(function (l) { levels.push(l.v); }); });
-          read = brand.cad.toPlan(drawing, sh.planta >= 0 ? { box: sh.regions[sh.planta].box, unit: sh.unit, heights: techo ? { techo: { drawing: drawing, box: techo.box }, levels: levels } : null } : {});
-          opened = normalize(read.plan);
-        } catch (e) { /* tampoco es un DXF que se pueda leer */ }
-      }
-      if (!opened) { hint.textContent = "Ese archivo no es un plano de " + (brand.name || "este sitio") + " ni un DXF con muros que se puedan leer."; return; }
-      pushHistory();
-      plan = opened; chain = null;
-      fit(); commit(null); syncSettings(); setTool("select");
-      if (read) hint.textContent = "DXF abierto: " + read.stats.walls + " muros y " + (read.stats.doors + read.stats.windows + read.stats.opens) + " aberturas deducidos del dibujo. Revisalos; con Deshacer volvés al plano anterior.";
-    };
-    reader.readAsText(file);
-  }
-  function openRefImage(file) {
-    const reader = new FileReader();
-    reader.onload = function () {
-      const image = new Image();
-      image.onload = function () {
-        const w = Math.round(view.w * 0.7);
-        plan.ref = { src: reader.result, ratio: image.naturalHeight / image.naturalWidth, w: w, x: Math.round(view.x + view.w * 0.15), y: Math.round(view.y + view.h * 0.12), opacity: 0.5 };
-        save(); syncSettings(); render();
-      };
-      image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
+  // ---------- Archivos: src/planner/io.ts ----------
+  const fileName = (ext) => planFileName(st.plan.name, ext);
   const actions = {
-    undo: function () { restore(history, future); },
-    redo: function () { restore(future, history); },
+    undo: function () { restore(st.history, st.future); },
+    redo: function () { restore(st.future, st.history); },
     delete: removeSelection,
     "flip-side": function () { changeOpening(function (o) { o.side = !o.side; }); },
     "flip-hinge": function () { changeOpening(function (o) { o.hinge = !o.hinge; }); },
     rotate: function () {
       pushHistory();
-      const it = itemById(sel.id);
+      const it = itemById(st.sel.id);
       it.r = ((it.r || 0) + 90) % 360;
-      commit(sel);
+      commit(st.sel);
     },
-    snap: function () { plan.snap = plan.snap === false; save(); syncSettings(); },
-    multi: function () { multi = !multi; setTool("select"); },
+    snap: function () { st.plan.snap = st.plan.snap === false; save(); syncSettings(); },
+    multi: function () { st.multi = !st.multi; setTool("select"); },
     // Parte el muro por la mitad, para poder darle a cada tramo un ladrillo distinto. Las aberturas quedan en su lugar.
     split: function () {
-      const w = wallById(sel.id), len = dist(w.a, w.b), mid = { x: Math.round((w.a.x + w.b.x) / 2), y: Math.round((w.a.y + w.b.y) / 2) };
+      const w = wallById(st.sel.id), len = dist(w.a, w.b), mid = { x: Math.round((w.a.x + w.b.x) / 2), y: Math.round((w.a.y + w.b.y) / 2) };
       if (len < 4 * GRID) return;
       pushHistory();
       const rest = Object.assign({}, w, { id: nextId(), a: copy(mid), b: copy(w.b) });
       const first = dist(w.a, mid);
-      plan.openings.forEach(function (o) {
+      st.plan.openings.forEach(function (o) {
         if (o.wall !== w.id) return;
         const pos = o.t * len;
         if (pos > first) { o.wall = rest.id; o.t = (pos - first) / (len - first); } else o.t = pos / first;
       });
       w.b = copy(mid);
-      plan.walls.push(rest);
-      plan.openings.forEach(function (o) { if (o.wall === w.id || o.wall === rest.id) o.t = clampT(o, o.t); });
+      st.plan.walls.push(rest);
+      st.plan.openings.forEach(function (o) { if (o.wall === w.id || o.wall === rest.id) o.t = clampT(o, o.t); });
       commit({ type: "walls", ids: [w.id, rest.id] });
     },
-    unwire: function () { pushHistory(); plan.wires = plan.wires.filter((w) => w.a !== sel.id && w.b !== sel.id); commit(sel); },
-    "section-clear": function () { pushHistory(); plan.section = null; commit(sel); },
+    unwire: function () { pushHistory(); st.plan.wires = st.plan.wires.filter((w) => w.a !== st.sel.id && w.b !== st.sel.id); commit(st.sel); },
+    "section-clear": function () { pushHistory(); st.plan.section = null; commit(st.sel); },
     "level-add": function () {
-      const count = (plan.levels || []).length || 1;
+      const count = (st.plan.levels || []).length || 1;
       if (count >= P.LEVEL_NAMES.length) { hint.textContent = "Se pueden cargar hasta " + P.LEVEL_NAMES.length + " plantas."; return; }
       pushHistory();
       stashLevel();
       // La planta nueva arranca con los muros exteriores de la última: lo habitual es apoyar muro sobre muro.
-      const top = plan.levels[count - 1];
-      const edges = P.compute(Object.assign({}, plan, { level: count - 1, walls: top.walls, openings: top.openings, items: top.items, labels: top.labels })).edges;
+      const top = st.plan.levels[count - 1];
+      const edges = P.compute(Object.assign({}, st.plan, { level: count - 1, walls: top.walls, openings: top.openings, items: top.items, labels: top.labels })).edges;
       const inner = {}, outer = {};
       edges.forEach(function (e) { (e.cls === "ext" ? outer : inner)[e.wall] = true; });
-      plan.levels.push({
+      st.plan.levels.push({
         name: P.LEVEL_NAMES[count], openings: [], items: [], labels: [],
         walls: top.walls.filter((w) => outer[w.id] && !inner[w.id]).map((w) => Object.assign({ id: nextId(), a: copy(w.a), b: copy(w.b) }, w.type ? { type: w.type } : {}))
       });
       showLevel(count);
     },
     "level-remove": function () {
-      if (!plan.levels || plan.levels.length < 2) { hint.textContent = "El plano tiene una sola planta."; return; }
+      if (!st.plan.levels || st.plan.levels.length < 2) { hint.textContent = "El plano tiene una sola planta."; return; }
       pushHistory();
       stashLevel();
-      plan.levels.splice(plan.level, 1);
-      plan.levels.forEach(function (level, i) { level.name = P.LEVEL_NAMES[i]; });
-      showLevel(Math.min(plan.level, plan.levels.length - 1));
+      st.plan.levels.splice(st.plan.level, 1);
+      st.plan.levels.forEach(function (level, i) { level.name = P.LEVEL_NAMES[i]; });
+      showLevel(Math.min(st.plan.level, st.plan.levels.length - 1));
     },
     "export-svg": function () { exportDrawing(false); },
     "export-png": function () { exportDrawing(true); },
-    "export-dxf": function () {
-      if (!P.levelsOf(plan).some((lv) => lv.walls.length)) { hint.textContent = "Todavía no hay nada dibujado para exportar."; return; }
-      download(fileName("dxf"), new Blob([brand.dxf.build(plan)], { type: "application/dxf" }));
-      hint.textContent = "DXF descargado: está en metros, con una capa por rubro (" + brand.dxf.layers.join(", ").toLowerCase() + ").";
-    },
-    "export-json": function () { download(fileName("json"), new Blob([JSON.stringify(Object.assign({ app: "calcuobra", version: 1 }, JSON.parse(snapshot())), null, 1)], { type: "application/json" })); },
+    "export-dxf": exportDxf,
+    "export-json": exportJson,
     "open-file": function () { $('[data-file="plan"]', root).click(); },
     "type-edit": function (el) { // del inspector del muro al panel de tipos, con su tipo abierto
-      editType = el.getAttribute("data-type") || "";
+      st.editType = el.getAttribute("data-type") || "";
       const box = $("[data-types-box]", root);
       box.open = true;
       renderTypes();
@@ -1003,98 +863,60 @@ function init(root) {
     "type-new": function () { // duplica el tipo abierto: así se arma uno nuevo sin empezar de cero
       pushHistory();
       ensureTypes();
-      const from = plan.wallTypes.find((x) => x.id === editType) || plan.wallTypes[0];
+      const from = st.plan.wallTypes.find((x) => x.id === st.editType) || st.plan.wallTypes[0];
       const copyType = JSON.parse(JSON.stringify(from));
       copyType.id = "t-" + nextId();
       copyType.name = ("Copia de " + from.name).slice(0, 60);
-      plan.wallTypes.push(copyType);
-      editType = copyType.id;
+      st.plan.wallTypes.push(copyType);
+      st.editType = copyType.id;
       save(); render(); renderTypes();
       const name = $("[data-type-name]", root);
       if (name) { name.focus(); name.select(); }
     },
     "type-delete": function () { // los muros que lo usaban vuelven al tipo por defecto de su clase
       ensureTypes();
-      if (plan.wallTypes.length < 2 || ["ext", "int"].some((c) => defaultType(c).id === editType)) return;
-      const used = everyWall().filter((w) => w.type === editType);
+      if (st.plan.wallTypes.length < 2 || ["ext", "int"].some((c) => defaultType(c).id === st.editType)) return;
+      const used = everyWall().filter((w) => w.type === st.editType);
       if (used.length && !window.confirm("Lo usan " + used.length + (used.length === 1 ? " muro, que pasa" : " muros, que pasan") + " al tipo por defecto. ¿Borrar el tipo?")) return;
       pushHistory();
       used.forEach((w) => { delete w.type; });
-      plan.wallTypes = plan.wallTypes.filter((x) => x.id !== editType);
-      if (nextType === editType) nextType = "";
-      editType = "";
+      st.plan.wallTypes = st.plan.wallTypes.filter((x) => x.id !== st.editType);
+      if (st.nextType === st.editType) st.nextType = "";
+      st.editType = "";
       save(); render(); renderTypes(); renderInspector();
     },
     "ref-load": function () { $('[data-file="ref"]', root).click(); },
     "sketch-load": function () { $('[data-file="sketch"]', root).click(); },
-    "sketch-cancel": function () { sketch = null; syncSketch(); fit(); render(); },
-    "sketch-apply": function () {
-      const k2 = sketchScale(), corner = sketchPoint(0, 0), before = plan.walls.length, steps = history.length;
-      // Los dos extremos se redondean a la grilla; como las esquinas comparten coordenada, siguen cerradas.
-      addWalls(sketch.segments.map(function (s) {
-        const a = sketchPoint(s.x1, s.y1), b = sketchPoint(s.x2, s.y2);
-        return [{ x: round(a.x), y: round(a.y) }, { x: round(b.x), y: round(b.y) }];
-      }));
-      if (history.length === steps) pushHistory(); // las paredes ya estaban: igual se suman las aberturas
-      // Cada abertura va a la pared de su misma dirección que pasa por su centro, con la medida comercial más cercana.
-      let placed = 0;
-      sketch.openings.forEach(function (o) {
-        const c = sketchPoint(o.x, o.y);
-        const host = plan.walls.filter((wl) => (Math.abs(wl.a.y - wl.b.y) < 1) === o.horizontal).map((wl) => ({ wall: wl, hit: project(wl, c) }))
-          .filter((q) => q.hit.d <= 20 && q.hit.raw > 0 && q.hit.raw < 1).sort((p, q) => p.hit.d - q.hit.d)[0];
-        if (!host) return;
-        const width = Math.max(40, Math.round(o.w * k2 / 5) * 5);
-        const type = o.kind === "open" ? "vano" : o.kind === "door" ? (width <= 75 ? "p70" : width <= 85 ? "p80" : width <= 125 ? "p90" : "pdoble")
-          : ["v100", "v120", "v150", "v180"].reduce((best, key) => Math.abs(D.openings[key].w - width) < Math.abs(D.openings[best].w - width) ? key : best);
-        const added = P.opening(nextId(), host.wall.id, host.hit.t, type);
-        added.w = width;
-        if (o.kind === "door") { // mismo lado y misma bisagra que en el dibujo
-          const hinge = sketchPoint(o.hx, o.hy), tip = sketchPoint(o.tx, o.ty), len = dist(host.wall.a, host.wall.b);
-          const dx = (host.wall.b.x - host.wall.a.x) / len, dy = (host.wall.b.y - host.wall.a.y) / len;
-          added.side = (tip.x - hinge.x) * -dy + (tip.y - hinge.y) * dx < 0;
-          added.hinge = (hinge.x - c.x) * dx + (hinge.y - c.y) * dy > 0;
-        }
-        added.t = clampT(Object.assign({}, added), added.t);
-        plan.openings.push(added);
-        placed++;
-      });
-      plan.ref = { src: sketch.src, ratio: sketch.h / sketch.w, w: Math.round(sketch.w * k2), x: Math.round(corner.x), y: Math.round(corner.y), opacity: 0.35, rot: sketch.angle };
-      const added = plan.walls.length - before;
-      sketch = null;
-      syncSketch();
-      fit();
-      commit(null);
-      syncSettings();
-      hint.textContent = "Se agregaron " + added + " paredes y " + placed + " aberturas. Revisá las medidas: el boceto queda de fondo para comparar y lo quitás desde «Imagen para calcar».";
-    },
-    "ref-clear": function () { plan.ref = null; save(); syncSettings(); render(); },
+    "sketch-cancel": cancelSketch,
+    "sketch-apply": applySketch,
+    "ref-clear": function () { st.plan.ref = null; save(); syncSettings(); render(); },
     "variant-add": function () {
       if (variantCount() >= OPTIONS.length) { hint.textContent = "Se pueden cargar hasta " + OPTIONS.length + " opciones."; return; }
       pushHistory();
       stashVariant();
-      const from = plan.variant;
-      plan.variants.push(JSON.parse(JSON.stringify(plan.variants[from])));
-      showVariant(plan.variants.length - 1);
-      hint.textContent = "Opción " + OPTIONS[plan.variant] + " creada como copia de la " + OPTIONS[from] + ". Lo que cambies acá no toca las otras; cambiá de opción con el selector de arriba.";
+      const from = st.plan.variant;
+      st.plan.variants.push(JSON.parse(JSON.stringify(st.plan.variants[from])));
+      showVariant(st.plan.variants.length - 1);
+      hint.textContent = "Opción " + OPTIONS[st.plan.variant] + " creada como copia de la " + OPTIONS[from] + ". Lo que cambies acá no toca las otras; cambiá de opción con el selector de arriba.";
     },
     "variant-remove": function () {
       if (variantCount() < 2) { hint.textContent = "El plano tiene una sola opción."; return; }
       pushHistory();
-      const gone = OPTIONS[plan.variant];
-      plan.variants.splice(plan.variant, 1);
-      showVariant(Math.min(plan.variant, plan.variants.length - 1));
-      if (plan.variants.length === 1) { plan.variants = []; plan.variant = 0; commit(null); }
+      const gone = OPTIONS[st.plan.variant];
+      st.plan.variants.splice(st.plan.variant, 1);
+      showVariant(Math.min(st.plan.variant, st.plan.variants.length - 1));
+      if (st.plan.variants.length === 1) { st.plan.variants = []; st.plan.variant = 0; commit(null); }
       hint.textContent = "Se eliminó la opción " + gone + ". Con Deshacer la recuperás.";
     },
     // Guarda el objeto elegido, con sus medidas, en la biblioteca personal.
     "shelf-add": function () {
-      const it = itemById(sel.id), def = D.items[it.type];
+      const it = itemById(st.sel.id), def = D.items[it.type];
       const entry = { id: Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), type: it.type, name: (def.custom && it.name) || def.label, w: it.w, d: it.d,
         tall: it.tall || undefined, shape: def.custom && it.shape === "round" ? "round" : undefined };
       const same = (o) => o.type === entry.type && o.name === entry.name && o.w === entry.w && o.d === entry.d && o.tall === entry.tall && o.shape === entry.shape;
-      if (shelf.some(same)) { hint.textContent = "«" + entry.name + "» con esas medidas ya está en Mis muebles."; return; }
-      if (shelf.length >= SHELF_MAX) { hint.textContent = "Mis muebles admite hasta " + SHELF_MAX + ". Quitá alguno con la × para guardar otro."; return; }
-      shelf.push(entry);
+      if (st.shelf.some(same)) { hint.textContent = "«" + entry.name + "» con esas medidas ya está en Mis muebles."; return; }
+      if (st.shelf.length >= SHELF_MAX) { hint.textContent = "Mis muebles admite hasta " + SHELF_MAX + ". Quitá alguno con la × para guardar otro."; return; }
+      st.shelf.push(entry);
       saveShelf();
       renderLibrary();
       const group = $('[data-items] [data-group="propios"]', root);
@@ -1104,26 +926,26 @@ function init(root) {
     present: function () { present(true); },
     "present-exit": function () { present(false); },
     duplicate: function () {
-      if (sel.type === "note") {
-        const twin = JSON.parse(JSON.stringify(noteById(sel.id)));
+      if (st.sel.type === "note") {
+        const twin = JSON.parse(JSON.stringify(noteById(st.sel.id)));
         twin.id = nextId();
         twin.pts.forEach(function (q) { q.x += 20; q.y += 20; });
         pushHistory();
-        plan.notes.push(twin);
+        st.plan.notes.push(twin);
         commit({ type: "note", id: twin.id });
         return;
       }
-      if (sel.type === "item") {
-        const it = itemById(sel.id), copyOf = Object.assign({}, it, { id: nextId(), x: it.x + 20, y: it.y + 20 });
+      if (st.sel.type === "item") {
+        const it = itemById(st.sel.id), copyOf = Object.assign({}, it, { id: nextId(), x: it.x + 20, y: it.y + 20 });
         pushHistory();
-        plan.items.push(copyOf);
+        st.plan.items.push(copyOf);
         commit({ type: "item", id: copyOf.id });
         return;
       }
-      const o = openingById(sel.id), twin = Object.assign({}, o, { id: nextId() });
+      const o = openingById(st.sel.id), twin = Object.assign({}, o, { id: nextId() });
       pushHistory();
       twin.t = clampT(twin, o.t + (o.w + 20) / dist(wallById(o.wall).a, wallById(o.wall).b));
-      plan.openings.push(twin);
+      st.plan.openings.push(twin);
       commit({ type: "opening", id: twin.id });
     },
     fit: function () { fit(); render(); },
@@ -1132,17 +954,17 @@ function init(root) {
     print: function () { window.print(); },
     // Planillas de carpinterías y locales: se leen del plano y lo que se edita en la tabla vuelve al plano.
     // Planillas de carpinterías y locales, y presupuesto de obra: src/planner/schedules.ts y budget.ts.
-    schedules: function () { openSchedules(ed); },
-    budget: function () { openBudget(ed); },
+    schedules: function () { openSchedules(); },
+    budget: function () { openBudget(); },
     docs: function () {
       if (!brand.docs) return;
-      brand.docs.open({ plan: function () { return plan; }, save: function (doc) { plan.doc = doc; save(); }, download: download, fileName: fileName });
+      brand.docs.open({ plan: function () { return st.plan; }, save: function (doc) { st.plan.doc = doc; save(); }, download: download, fileName: fileName });
     },
     clear: function () { // vacía el plano entero: todas las plantas y el corte, no solo la planta a la vista
       pushHistory();
-      P.LEVEL_FIELDS.forEach(function (f) { plan[f] = []; });
-      plan.levels = []; plan.level = 0; plan.section = null;
-      chain = null;
+      P.LEVEL_FIELDS.forEach(function (f) { st.plan[f] = []; });
+      st.plan.levels = []; st.plan.level = 0; st.plan.section = null;
+      st.chain = null;
       fit();
       commit(null);
       syncSettings();
@@ -1150,69 +972,14 @@ function init(root) {
     sample: function () {
       pushHistory();
       const s = P.sample();
-      s.settings = plan.settings; s.layers = plan.layers; s.snap = plan.snap; s.ref = plan.ref; s.name = plan.name; s.doc = plan.doc;
-      s.variants = plan.variants; s.variant = plan.variant; // el ejemplo reemplaza solo la opción a la vista
-      plan = s; chain = null;
+      s.settings = st.plan.settings; s.layers = st.plan.layers; s.snap = st.plan.snap; s.ref = st.plan.ref; s.name = st.plan.name; s.doc = st.plan.doc;
+      s.variants = st.plan.variants; s.variant = st.plan.variant; // el ejemplo reemplaza solo la opción a la vista
+      st.plan = s; st.chain = null;
       fit(); commit(null); syncSettings(); setTool("select");
     }
   };
 
-  // ---------- Boceto a plano ----------
-  // El boceto se analiza y se muestra como vista previa; recién al aceptar se convierte en paredes.
-  const sketchScale = () => sketch.width * 100 / Math.max(1, sketch.box.x1 - sketch.box.x0); // cm por píxel
-  const sketchPoint = (x, y) => ({ x: sketch.origin.x + (x - sketch.box.x0) * sketchScale(), y: sketch.origin.y + (y - sketch.box.y0) * sketchScale() });
-  function syncSketch() {
-    sketchBar.hidden = !sketch;
-    if (!sketch) return;
-    const n = sketch.segments.length, count = (kind) => sketch.openings.filter((o) => o.kind === kind).length;
-    const parts = [[n, "pared", "paredes"], [count("door"), "puerta", "puertas"], [count("window"), "ventana", "ventanas"], [count("open"), "vano", "vanos"]]
-      .filter((p) => p[0]).map((p) => p[0] + " " + (p[0] === 1 ? p[1] : p[2]));
-    $("[data-sketch-count]", root).textContent = n ? "Detecté " + parts.slice(0, -1).join(", ") + (parts.length > 1 ? " y " : "") + parts[parts.length - 1] + "."
-      : "No encontré trazos rectos. Probá con más detalle o con una foto más nítida y de frente.";
-    $('[data-sketch="width"]', root).value = E.fmt(sketch.width, 2);
-    $('[data-sketch="detail"]', root).value = String(sketch.detail);
-    $('[data-action="sketch-apply"]', root).disabled = !n;
-  }
-  function detectSketch() {
-    const found = brand.sketch.vectorize(sketch.gray, sketch.w, sketch.h, sketch.detail);
-    sketch.segments = found.segments;
-    sketch.openings = found.openings;
-    sketch.angle = found.angle;
-    sketch.box = found.box || { x0: 0, y0: 0, x1: sketch.w, y1: sketch.h };
-    const k = sketchScale(), corner = sketchPoint(0, 0), r = svg.getBoundingClientRect(), ratio = r.width && r.height ? r.height / r.width : 0.75;
-    view.w = Math.max(sketch.w * k, sketch.h * k / ratio) * 1.15; // encuadra el boceto
-    view.x = corner.x + sketch.w * k / 2 - view.w / 2;
-    view.y = corner.y + sketch.h * k / 2 - view.w * ratio / 2;
-    syncSketch();
-    render();
-  }
-  function readSketch(file) {
-    const fail = function () { hint.textContent = "No se pudo leer esa imagen."; };
-    const reader = new FileReader();
-    reader.onerror = fail;
-    reader.onload = function () {
-      const image = new Image();
-      image.onerror = fail;
-      image.onload = function () {
-        const shrink = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight)); // 900 px alcanzan y lo mantienen rápido
-        const w = Math.max(1, Math.round(image.naturalWidth * shrink)), h = Math.max(1, Math.round(image.naturalHeight * shrink));
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(image, 0, 0, w, h);
-        const rgba = ctx.getImageData(0, 0, w, h).data, gray = new Uint8Array(w * h);
-        for (let i = 0; i < w * h; i++) gray[i] = Math.round(rgba[i * 4] * 0.299 + rgba[i * 4 + 1] * 0.587 + rgba[i * 4 + 2] * 0.114);
-        // Se ubica a la derecha de lo que ya esté dibujado, para no pisarlo.
-        const right = plan.walls.reduce((m, wall) => Math.max(m, wall.a.x, wall.b.x), -Infinity);
-        setTool("select"); // antes de crear el boceto: setTool redibuja y la vista previa todavía no tiene trazos
-        sketch = { src: canvas.toDataURL("image/jpeg", 0.8), gray: gray, w: w, h: h, width: 10, detail: 0.05, origin: { x: isFinite(right) ? round(right + 300) : 0, y: 0 } };
-        detectSketch();
-      };
-      image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
+  // ---------- Boceto a plano: src/planner/sketch.ts ----------
 
   // ---------- Vista 3D ----------
   function showView(mode) {
@@ -1222,10 +989,10 @@ function init(root) {
     if (brand.view3d) brand.view3d.close();
     if (!on) { render(); return; }
     note3d.hidden = false;
-    if (!plan.walls.length) { note3d.textContent = "Dibujá al menos una pared para verla en 3D."; return; }
+    if (!st.plan.walls.length) { note3d.textContent = "Dibujá al menos una pared para verla en 3D."; return; }
     if (!brand.view3d) { note3d.textContent = "No se pudo cargar la vista 3D. Recargá la página."; return; }
     note3d.textContent = "Preparando la vista 3D…";
-    brand.view3d.open(stage3d, plan, { roof: layers().roof }).then(function (info) {
+    brand.view3d.open(stage3d, st.plan, { roof: layers().roof }).then(function (info) {
       note3d.hidden = true;
       stage3d.setAttribute("data-meshes", info.meshes);
     }, function (e) {
@@ -1238,196 +1005,196 @@ function init(root) {
   }
 
   // ---------- Eventos ----------
-  function touch() { if (!drag.dirty) { pushHistory(); drag.dirty = true; } }
-  function startPan(e, p) { drag = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, p: p }; }
+  function touch() { if (!st.drag.dirty) { pushHistory(); st.drag.dirty = true; } }
+  function startPan(e, p) { st.drag = { type: "pan", sx: e.clientX, sy: e.clientY, vx: st.view.x, vy: st.view.y, p: p }; }
 
   svg.addEventListener("pointerdown", function (e) {
     if (e.button === 2) return;
     const p = toWorld(e);
     try { svg.setPointerCapture(e.pointerId); } catch (err) { /* puntero sintético */ }
-    if (e.button === 1 || tool === "pan" || spaceDown) { e.preventDefault(); startPan(e); return; }
-    if (NOTES[tool]) {
-      const fresh = { id: 0, kind: tool, color: nextNote.color, w: nextNote.w };
-      if (tool !== "text") { drag = { type: "draw", sx: e.clientX, sy: e.clientY, note: Object.assign(fresh, { pts: tool === "pen" ? [pt1(p)] : [pt1(p), pt1(p)] }) }; return; }
+    if (e.button === 1 || st.tool === "pan" || st.spaceDown) { e.preventDefault(); startPan(e); return; }
+    if (NOTES[st.tool]) {
+      const fresh = { id: 0, kind: st.tool, color: st.nextNote.color, w: st.nextNote.w };
+      if (st.tool !== "text") { st.drag = { type: "draw", sx: e.clientX, sy: e.clientY, note: Object.assign(fresh, { pts: st.tool === "pen" ? [pt1(p)] : [pt1(p), pt1(p)] }) }; return; }
       e.preventDefault(); // el foco tiene que quedar en el campo de texto, no volver al lienzo
       Object.assign(fresh, { id: nextId(), pts: [pt1(p)], text: "Nota" });
       pushHistory();
-      plan.notes.push(fresh);
-      setTool(presenting ? "pan" : "select");
+      st.plan.notes.push(fresh);
+      setTool(st.presenting ? "pan" : "select");
       commit({ type: "note", id: fresh.id });
       const input = $('input[name="text"]', inspector);
       if (input) { input.focus(); input.select(); }
       return;
     }
-    if (tool === "wall") { addWallPoint(snap(p, { from: chain })); return; }
-    if (tool === "room") { addRoomPoint(snap(p)); return; }
-    if (tool === "opening") { const hit = hitWall(p); if (hit) addOpening(hit, pick); return; }
-    if (tool === "item") {
+    if (st.tool === "wall") { addWallPoint(snap(p, { from: st.chain })); return; }
+    if (st.tool === "room") { addRoomPoint(snap(p)); return; }
+    if (st.tool === "opening") { const hit = hitWall(p); if (hit) addOpening(hit, st.pick); return; }
+    if (st.tool === "item") {
       const q = itemPoint(p), it = newItem(nextId(), q);
       pushHistory();
-      plan.items.push(it);
-      ghost = null;
+      st.plan.items.push(it);
+      st.ghost = null;
       commit({ type: "item", id: it.id });
       return;
     }
-    if (tool === "measure") {
+    if (st.tool === "measure") {
       const q = snap(p);
-      measure = !measure || measure.b ? { a: q } : { a: measure.a, b: q };
-      hover = null;
+      st.measure = !st.measure || st.measure.b ? { a: q } : { a: st.measure.a, b: q };
+      st.hover = null;
       render();
       return;
     }
 
-    if (tool === "arc") { // inicio, final y un punto de paso
+    if (st.tool === "arc") { // inicio, final y un punto de paso
       const q = snap(p);
-      if (!chain) chain = q;
-      else if (!arcEnd) { if (dist(chain, q) >= GRID) arcEnd = q; }
+      if (!st.chain) st.chain = q;
+      else if (!st.arcEnd) { if (dist(st.chain, q) >= GRID) st.arcEnd = q; }
       else {
-        const pts = P.arcPoints(chain, arcEnd, q) || [chain, arcEnd];
+        const pts = P.arcPoints(st.chain, st.arcEnd, q) || [st.chain, st.arcEnd];
         addWalls(pts.slice(1).map((point, i) => [pts[i], point]));
-        chain = null; arcEnd = null;
+        st.chain = null; st.arcEnd = null;
         commit(null);
         return;
       }
       render();
       return;
     }
-    if (tool === "surface") {
+    if (st.tool === "surface") {
       const q = snap(p);
-      if (!chain) { chain = q; render(); return; }
-      if (Math.abs(q.x - chain.x) < GRID || Math.abs(q.y - chain.y) < GRID) return;
-      const sf = { id: nextId(), x: Math.min(chain.x, q.x), y: Math.min(chain.y, q.y), w: Math.abs(q.x - chain.x), h: Math.abs(q.y - chain.y), type: "patio" };
+      if (!st.chain) { st.chain = q; render(); return; }
+      if (Math.abs(q.x - st.chain.x) < GRID || Math.abs(q.y - st.chain.y) < GRID) return;
+      const sf = { id: nextId(), x: Math.min(st.chain.x, q.x), y: Math.min(st.chain.y, q.y), w: Math.abs(q.x - st.chain.x), h: Math.abs(q.y - st.chain.y), type: "patio" };
       pushHistory();
-      plan.surfaces.push(sf);
-      chain = null;
+      st.plan.surfaces.push(sf);
+      st.chain = null;
       commit({ type: "surface", id: sf.id });
       return;
     }
-    if (tool === "section") {
+    if (st.tool === "section") {
       const q = snap(p);
-      if (!chain) { chain = q; render(); return; }
-      if (dist(chain, q) < GRID) return;
+      if (!st.chain) { st.chain = q; render(); return; }
+      if (dist(st.chain, q) < GRID) return;
       pushHistory();
-      plan.section = { a: chain, b: q };
+      st.plan.section = { a: st.chain, b: q };
       commit(null);
       setTool("select");
       return;
     }
-    if (tool === "wire") {
+    if (st.tool === "wire") {
       const it = hitItem(p);
       if (!it || D.items[it.type].group !== "electricidad") return;
-      const linked = wireFrom && plan.wires.some((w) => (w.a === wireFrom && w.b === it.id) || (w.a === it.id && w.b === wireFrom));
-      if (wireFrom && wireFrom !== it.id && !linked) { pushHistory(); plan.wires.push({ id: nextId(), a: wireFrom, b: it.id }); }
-      wireFrom = it.id;
+      const linked = st.wireFrom && st.plan.wires.some((w) => (w.a === st.wireFrom && w.b === it.id) || (w.a === it.id && w.b === st.wireFrom));
+      if (st.wireFrom && st.wireFrom !== it.id && !linked) { pushHistory(); st.plan.wires.push({ id: nextId(), a: st.wireFrom, b: it.id }); }
+      st.wireFrom = it.id;
       commit(null);
       return;
     }
 
-    const adding = e.shiftKey || multi; // "Elegir varios" hace lo mismo que Shift, también con el dedo
-    const wall = !adding && sel && sel.type === "wall" && wallById(sel.id);
+    const adding = e.shiftKey || st.multi; // "Elegir varios" hace lo mismo que Shift, también con el dedo
+    const wall = !adding && st.sel && st.sel.type === "wall" && wallById(st.sel.id);
     const end = wall && [wall.a, wall.b].find((q) => dist(q, p) < 11 * px());
-    if (end) { drag = { type: "node", cur: copy(end) }; return; }
+    if (end) { st.drag = { type: "node", cur: copy(end) }; return; }
     if (adding) { // sumar o quitar muros de la selección, o empezar un recuadro
       const more = hitWall(p);
-      if (!more) { drag = { type: "box", start: p, cur: p, sx: e.clientX, sy: e.clientY, add: true }; return; }
+      if (!more) { st.drag = { type: "box", start: p, cur: p, sx: e.clientX, sy: e.clientY, add: true }; return; }
       const ids = pickedWalls().slice(), at = ids.indexOf(more.wall.id);
       if (at >= 0) ids.splice(at, 1); else ids.push(more.wall.id);
       commit(wallsSel(ids));
       return;
     }
     // Las anotaciones van dibujadas encima de todo: son lo primero que se elige.
-    const marked = !adding && sel && sel.type === "note" && noteById(sel.id);
+    const marked = !adding && st.sel && st.sel.type === "note" && noteById(st.sel.id);
     const corner = marked && marked.kind !== "pen" && marked.kind !== "text" ? marked.pts.findIndex((q) => dist(q, p) < 11 * px()) : -1;
-    if (corner >= 0) { drag = { type: "notept", id: marked.id, i: corner }; return; }
+    if (corner >= 0) { st.drag = { type: "notept", id: marked.id, i: corner }; return; }
     const note = !adding && hitNote(p);
-    if (note) { commit({ type: "note", id: note.id }); drag = { type: "note", id: note.id, start: p, from: note.pts.map(copy) }; return; }
+    if (note) { commit({ type: "note", id: note.id }); st.drag = { type: "note", id: note.id, start: p, from: note.pts.map(copy) }; return; }
     const opening = hitOpening(p);
-    if (opening) { commit({ type: "opening", id: opening.id }); drag = { type: "opening", id: opening.id }; return; }
+    if (opening) { commit({ type: "opening", id: opening.id }); st.drag = { type: "opening", id: opening.id }; return; }
     // Un clic sobre el cuerpo del muro elige el muro, aunque haya un mueble arrimado; el margen extra del mueble vale solo fuera del muro.
-    const hit = hitWall(p), onWall = hit && hit.d <= (model.wallThick[hit.wall.id] || 12) / 2;
+    const hit = hitWall(p), onWall = hit && hit.d <= (st.model.wallThick[hit.wall.id] || 12) / 2;
     const thing = !onWall && hitItem(p);
-    if (thing) { commit({ type: "item", id: thing.id }); drag = { type: "item", id: thing.id, dx: p.x - thing.x, dy: p.y - thing.y }; return; }
+    if (thing) { commit({ type: "item", id: thing.id }); st.drag = { type: "item", id: thing.id, dx: p.x - thing.x, dy: p.y - thing.y }; return; }
     if (hit) {
       commit({ type: "wall", id: hit.wall.id });
-      drag = { type: "wall", start: p, a: copy(hit.wall.a), b: copy(hit.wall.b), curA: copy(hit.wall.a), curB: copy(hit.wall.b) };
+      st.drag = { type: "wall", start: p, a: copy(hit.wall.a), b: copy(hit.wall.b), curA: copy(hit.wall.a), curB: copy(hit.wall.b) };
       return;
     }
     // Sobre el fondo: con mouse o lápiz, arrastrar abre un recuadro de selección; con el dedo, desplaza el plano.
     // En los dos casos, un toque sin arrastre elige el ambiente o la superficie que haya debajo.
     if (e.pointerType === "touch") startPan(e, p);
-    else drag = { type: "box", start: p, cur: p, sx: e.clientX, sy: e.clientY };
+    else st.drag = { type: "box", start: p, cur: p, sx: e.clientX, sy: e.clientY };
   });
 
   svg.addEventListener("pointermove", function (e) {
     const p = toWorld(e);
     coords.textContent = "X " + E.fmt(p.x / 100, 2) + " · Y " + E.fmt(p.y / 100, 2);
-    if (!drag) {
-      if (tool === "wall") { hover = snap(p, { from: chain }); render(); }
-      else if (tool === "room") { hover = snap(p); render(); }
-      else if (tool === "opening") {
+    if (!st.drag) {
+      if (st.tool === "wall") { st.hover = snap(p, { from: st.chain }); render(); }
+      else if (st.tool === "room") { st.hover = snap(p); render(); }
+      else if (st.tool === "opening") {
         const hit = hitWall(p);
-        ghost = hit ? P.opening(0, hit.wall.id, hit.t, pick) : null;
-        if (ghost) ghost.t = clampT(ghost, ghost.t);
+        st.ghost = hit ? P.opening(0, hit.wall.id, hit.t, st.pick) : null;
+        if (st.ghost) st.ghost.t = clampT(st.ghost, st.ghost.t);
         render();
-      } else if (tool === "item") {
+      } else if (st.tool === "item") {
         const q = itemPoint(p);
-        ghost = newItem(0, q);
+        st.ghost = newItem(0, q);
         render();
-      } else if (tool === "measure" && measure && !measure.b) { hover = snap(p); render(); }
-      else if (tool === "arc" || tool === "surface" || tool === "section") { hover = snap(p); render(); }
-      else if (tool === "wire" && wireFrom) { hover = p; render(); }
+      } else if (st.tool === "measure" && st.measure && !st.measure.b) { st.hover = snap(p); render(); }
+      else if (st.tool === "arc" || st.tool === "surface" || st.tool === "section") { st.hover = snap(p); render(); }
+      else if (st.tool === "wire" && st.wireFrom) { st.hover = p; render(); }
       return;
     }
-    if (drag.type === "pan") {
+    if (st.drag.type === "pan") {
       const k = px();
-      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
-      view.x = drag.vx - (e.clientX - drag.sx) * k;
-      view.y = drag.vy - (e.clientY - drag.sy) * k;
+      if (Math.abs(e.clientX - st.drag.sx) + Math.abs(e.clientY - st.drag.sy) > 4) st.drag.moved = true;
+      st.view.x = st.drag.vx - (e.clientX - st.drag.sx) * k;
+      st.view.y = st.drag.vy - (e.clientY - st.drag.sy) * k;
       render();
-    } else if (drag.type === "box") {
-      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
-      drag.cur = p;
+    } else if (st.drag.type === "box") {
+      if (Math.abs(e.clientX - st.drag.sx) + Math.abs(e.clientY - st.drag.sy) > 4) st.drag.moved = true;
+      st.drag.cur = p;
       render();
-    } else if (drag.type === "draw") {
-      const nt = drag.note, q = pt1(p);
-      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) drag.moved = true;
+    } else if (st.drag.type === "draw") {
+      const nt = st.drag.note, q = pt1(p);
+      if (Math.abs(e.clientX - st.drag.sx) + Math.abs(e.clientY - st.drag.sy) > 4) st.drag.moved = true;
       if (nt.kind !== "pen") nt.pts[1] = e.shiftKey ? straight(nt.pts[0], q, nt.kind) : q;
       else if (dist(nt.pts[nt.pts.length - 1], q) >= 2 * px()) nt.pts.push(q);
       render();
-    } else if (drag.type === "note") {
-      const nt = noteById(drag.id), dx = p.x - drag.start.x, dy = p.y - drag.start.y;
-      if (Math.abs(dx) + Math.abs(dy) < 2 * px() && !drag.dirty) return;
+    } else if (st.drag.type === "note") {
+      const nt = noteById(st.drag.id), dx = p.x - st.drag.start.x, dy = p.y - st.drag.start.y;
+      if (Math.abs(dx) + Math.abs(dy) < 2 * px() && !st.drag.dirty) return;
       touch();
-      nt.pts = drag.from.map((q) => pt1({ x: q.x + dx, y: q.y + dy }));
+      nt.pts = st.drag.from.map((q) => pt1({ x: q.x + dx, y: q.y + dy }));
       render();
-    } else if (drag.type === "notept") {
-      const nt = noteById(drag.id);
+    } else if (st.drag.type === "notept") {
+      const nt = noteById(st.drag.id);
       touch();
-      nt.pts[drag.i] = e.shiftKey ? straight(nt.pts[1 - drag.i], pt1(p), nt.kind) : pt1(p);
+      nt.pts[st.drag.i] = e.shiftKey ? straight(nt.pts[1 - st.drag.i], pt1(p), nt.kind) : pt1(p);
       render();
-    } else if (drag.type === "node") {
-      const to = snap(p, { skip: drag.cur });
-      if (same(to, drag.cur)) return;
+    } else if (st.drag.type === "node") {
+      const to = snap(p, { skip: st.drag.cur });
+      if (same(to, st.drag.cur)) return;
       touch();
-      movePoints([{ from: drag.cur, to: to }]);
-      drag.cur = to;
+      movePoints([{ from: st.drag.cur, to: to }]);
+      st.drag.cur = to;
       render();
-    } else if (drag.type === "wall") {
-      const dx = round(p.x - drag.start.x), dy = round(p.y - drag.start.y);
-      const a = { x: drag.a.x + dx, y: drag.a.y + dy }, b = { x: drag.b.x + dx, y: drag.b.y + dy };
-      if (same(a, drag.curA)) return;
+    } else if (st.drag.type === "wall") {
+      const dx = round(p.x - st.drag.start.x), dy = round(p.y - st.drag.start.y);
+      const a = { x: st.drag.a.x + dx, y: st.drag.a.y + dy }, b = { x: st.drag.b.x + dx, y: st.drag.b.y + dy };
+      if (same(a, st.drag.curA)) return;
       touch();
-      movePoints([{ from: drag.curA, to: a }, { from: drag.curB, to: b }]);
-      drag.curA = a; drag.curB = b;
+      movePoints([{ from: st.drag.curA, to: a }, { from: st.drag.curB, to: b }]);
+      st.drag.curA = a; st.drag.curB = b;
       render();
-    } else if (drag.type === "item") {
-      const it = itemById(drag.id), q = itemPoint({ x: p.x - drag.dx, y: p.y - drag.dy });
+    } else if (st.drag.type === "item") {
+      const it = itemById(st.drag.id), q = itemPoint({ x: p.x - st.drag.dx, y: p.y - st.drag.dy });
       if (q.x === it.x && q.y === it.y) return;
       touch();
       it.x = q.x; it.y = q.y;
       render();
-    } else if (drag.type === "opening") {
-      const o = openingById(drag.id);
+    } else if (st.drag.type === "opening") {
+      const o = openingById(st.drag.id);
       const t = clampT(o, project(wallById(o.wall), p).t);
       if (t === o.t) return;
       touch();
@@ -1437,9 +1204,9 @@ function init(root) {
   });
 
   function endDrag() {
-    if (!drag) return;
-    const done = drag;
-    drag = null;
+    if (!st.drag) return;
+    const done = st.drag;
+    st.drag = null;
     // Lo que haya bajo un toque sin arrastre: un ambiente o una superficie exterior.
     const under = function (q) {
       const outside = !roomAt(q) && hitSurface(q);
@@ -1451,7 +1218,7 @@ function init(root) {
       if (!done.moved || nt.pts.length < 2 || dist(nt.pts[0], nt.pts[1]) < 1 && nt.pts.length === 2) { hint.textContent = "Mantené apretado y arrastrá para dibujar."; render(); return; }
       pushHistory();
       nt.id = nextId();
-      plan.notes.push(nt);
+      st.plan.notes.push(nt);
       commit(null); // la herramienta sigue activa para seguir anotando
       return;
     }
@@ -1465,21 +1232,21 @@ function init(root) {
       const x0 = Math.min(done.start.x, done.cur.x), x1 = Math.max(done.start.x, done.cur.x), y0 = Math.min(done.start.y, done.cur.y), y1 = Math.max(done.start.y, done.cur.y);
       const inside = (q) => q.x >= x0 && q.x <= x1 && q.y >= y0 && q.y <= y1;
       const ids = done.add ? pickedWalls().slice() : [];
-      plan.walls.forEach(function (w) {
+      st.plan.walls.forEach(function (w) {
         if (ids.indexOf(w.id) < 0 && (inside(w.a) || inside(w.b) || inside({ x: (w.a.x + w.b.x) / 2, y: (w.a.y + w.b.y) / 2 }))) ids.push(w.id);
       });
       commit(wallsSel(ids));
       return;
     }
     if (done.type === "pan") {
-      if (!done.moved && done.p && tool === "select") commit(under(done.p));
-    } else if (done.dirty) commit(sel);
+      if (!done.moved && done.p && st.tool === "select") commit(under(done.p));
+    } else if (done.dirty) commit(st.sel);
   }
   svg.addEventListener("pointerup", endDrag);
   svg.addEventListener("pointercancel", endDrag);
-  svg.addEventListener("pointerleave", function () { if (!drag && (hover || ghost)) { hover = null; ghost = null; render(); } });
-  svg.addEventListener("dblclick", function () { if (chain) { chain = null; render(); } });
-  svg.addEventListener("contextmenu", function (e) { if (chain) { e.preventDefault(); chain = null; render(); } });
+  svg.addEventListener("pointerleave", function () { if (!st.drag && (st.hover || st.ghost)) { st.hover = null; st.ghost = null; render(); } });
+  svg.addEventListener("dblclick", function () { if (st.chain) { st.chain = null; render(); } });
+  svg.addEventListener("contextmenu", function (e) { if (st.chain) { e.preventDefault(); st.chain = null; render(); } });
   svg.addEventListener("wheel", function (e) { e.preventDefault(); zoomAt(toWorld(e), e.deltaY > 0 ? 1.15 : 1 / 1.15); }, { passive: false });
 
   root.addEventListener("click", function (e) {
@@ -1487,13 +1254,13 @@ function init(root) {
     const gone = e.target.closest("[data-shelf-remove]"), mine = e.target.closest("[data-pick-shelf]");
     if (gone) { // quitar un mueble de la biblioteca personal; los que ya están en el plano no cambian
       const id = gone.getAttribute("data-shelf-remove");
-      shelf = shelf.filter((o) => o.id !== id);
+      st.shelf = st.shelf.filter((o) => o.id !== id);
       saveShelf();
-      if (stamp && stamp.id === id) setTool("select");
+      if (st.stamp && st.stamp.id === id) setTool("select");
       renderLibrary();
       return;
     }
-    if (mine) { const own = shelf.find((o) => o.id === mine.getAttribute("data-pick-shelf")); if (own) setTool("item", own.type, own); return; }
+    if (mine) { const own = st.shelf.find((o) => o.id === mine.getAttribute("data-pick-shelf")); if (own) setTool("item", own.type, own); return; }
     const tpl = e.target.closest("[data-view-tpl]");
     if (tpl) { applyViewTemplate(tpl.getAttribute("data-view-tpl")); return; }
     const swatch = e.target.closest("[data-swatch]");
@@ -1508,7 +1275,7 @@ function init(root) {
     }
     else if (e.target.closest("[data-copy]")) {
       const button = e.target.closest("[data-copy]");
-      (navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+      (navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText(st.text) : Promise.reject()).then(
         function () { button.textContent = "✓ Copiado"; }, function () { button.textContent = "No se pudo copiar"; });
     }
   });
@@ -1517,113 +1284,113 @@ function init(root) {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     if (e.code === "Space") { // mientras esté apretada, arrastrar desplaza el plano
       e.preventDefault();
-      spaceDown = true;
+      st.spaceDown = true;
       svg.setAttribute("data-pan", "");
       return;
     }
     const key = e.key.toLowerCase(), ctrl = e.ctrlKey || e.metaKey;
-    if (tool === "wall" && chain && !ctrl) { // largo escrito a mano
-      if (/^[0-9.,]$/.test(e.key)) { typed += e.key; if (!hover) hover = { x: chain.x + 100, y: chain.y }; render(); return; }
-      if (e.key === "Backspace" && typed) { e.preventDefault(); typed = typed.slice(0, -1); render(); return; }
-      if (e.key === "Enter" && typed) {
-        const len = E.parseNum(typed) * 100, d = hover && dist(chain, hover);
-        if (len >= GRID && d) addWallPoint({ x: Math.round(chain.x + (hover.x - chain.x) / d * len), y: Math.round(chain.y + (hover.y - chain.y) / d * len) });
+    if (st.tool === "wall" && st.chain && !ctrl) { // largo escrito a mano
+      if (/^[0-9.,]$/.test(e.key)) { st.typed += e.key; if (!st.hover) st.hover = { x: st.chain.x + 100, y: st.chain.y }; render(); return; }
+      if (e.key === "Backspace" && st.typed) { e.preventDefault(); st.typed = st.typed.slice(0, -1); render(); return; }
+      if (e.key === "Enter" && st.typed) {
+        const len = E.parseNum(st.typed) * 100, d = st.hover && dist(st.chain, st.hover);
+        if (len >= GRID && d) addWallPoint({ x: Math.round(st.chain.x + (st.hover.x - st.chain.x) / d * len), y: Math.round(st.chain.y + (st.hover.y - st.chain.y) / d * len) });
         return;
       }
     }
     if (e.key === "Escape") {
-      if (chain || wireFrom) { chain = null; arcEnd = null; wireFrom = null; typed = ""; render(); }
-      else if (sel && (tool === "select" || tool === "pan")) commit(null);
-      else if (presenting && tool === "pan") present(false);
-      else setTool(presenting ? "pan" : "select");
+      if (st.chain || st.wireFrom) { st.chain = null; st.arcEnd = null; st.wireFrom = null; st.typed = ""; render(); }
+      else if (st.sel && (st.tool === "select" || st.tool === "pan")) commit(null);
+      else if (st.presenting && st.tool === "pan") present(false);
+      else setTool(st.presenting ? "pan" : "select");
     }
-    else if (ctrl && key === "a" && tool === "select") { e.preventDefault(); commit(wallsSel(plan.walls.map((w) => w.id))); }
-    else if (e.key === "Delete" || e.key === "Backspace") { if (sel) { e.preventDefault(); removeSelection(); } }
+    else if (ctrl && key === "a" && st.tool === "select") { e.preventDefault(); commit(wallsSel(st.plan.walls.map((w) => w.id))); }
+    else if (e.key === "Delete" || e.key === "Backspace") { if (st.sel) { e.preventDefault(); removeSelection(); } }
     else if (ctrl && key === "z") { e.preventDefault(); actions[e.shiftKey ? "redo" : "undo"](); }
     else if (ctrl && key === "y") { e.preventDefault(); actions.redo(); }
     else if (!ctrl && !e.altKey && KEYS[key]) setTool(KEYS[key][0], KEYS[key][1]);
   });
 
-  const releaseSpace = function () { spaceDown = false; svg.removeAttribute("data-pan"); };
+  const releaseSpace = function () { st.spaceDown = false; svg.removeAttribute("data-pan"); };
   document.addEventListener("keyup", function (e) { if (e.code === "Space") releaseSpace(); });
   window.addEventListener("blur", releaseSpace);
 
   inspector.addEventListener("change", function (e) {
     // Sin nada seleccionado, el único campo posible es el ladrillo de los muros nuevos.
-    if (e.target.name === "nextType") { nextType = e.target.value; renderInspector(); return; }
-    if (e.target.name === "nextPhase") { nextPhase = e.target.value; renderInspector(); return; }
+    if (e.target.name === "nextType") { st.nextType = e.target.value; renderInspector(); return; }
+    if (e.target.name === "nextPhase") { st.nextPhase = e.target.value; renderInspector(); return; }
     if (e.target.name === "phase") {
       pushHistory();
       const v = e.target.value;
-      if (sel.type === "opening") {
+      if (st.sel.type === "opening") {
         const o = selected();
         if (v) o.phase = v; else delete o.phase;
       } else {
         pickedWalls().map(wallById).forEach(function (w) {
           // Un muro que pasa a existente conserva el tipo que tiene hoy, aunque después cambie la planta a su alrededor.
-          if (v && !w.type) { const edge = model.edges.find((x) => x.wall === w.id); if (edge) w.type = edge.wt; }
+          if (v && !w.type) { const edge = st.model.edges.find((x) => x.wall === w.id); if (edge) w.type = edge.wt; }
           if (v) w.phase = v; else delete w.phase;
         });
       }
-      commit(sel);
+      commit(st.sel);
       return;
     }
-    if (e.target.name === "nextW") { nextNote.w = e.target.value; return; }
-    if (!sel) return;
-    if (sel.type === "room") { tagRoom(e.target.name, e.target.value.trim()); return; }
-    if (sel.type === "note") {
+    if (e.target.name === "nextW") { st.nextNote.w = e.target.value; return; }
+    if (!st.sel) return;
+    if (st.sel.type === "room") { tagRoom(e.target.name, e.target.value.trim()); return; }
+    if (st.sel.type === "note") {
       pushHistory();
-      noteById(sel.id)[e.target.name] = e.target.name === "text" ? e.target.value.trim() || "Nota" : e.target.value;
-      commit(sel);
+      noteById(st.sel.id)[e.target.name] = e.target.name === "text" ? e.target.value.trim() || "Nota" : e.target.value;
+      commit(st.sel);
       return;
     }
-    if (sel.type === "surface") {
-      const sf = surfaceById(sel.id), v = Math.round(E.parseNum(e.target.value) * 100);
+    if (st.sel.type === "surface") {
+      const sf = surfaceById(st.sel.id), v = Math.round(E.parseNum(e.target.value) * 100);
       if (e.target.name !== "type" && !(v >= GRID)) { renderInspector(); return; }
       pushHistory();
       sf[e.target.name] = e.target.name === "type" ? e.target.value : v;
-      commit(sel);
+      commit(st.sel);
       return;
     }
-    if (sel.type === "item" && (e.target.name === "name" || e.target.name === "shape")) { // solo en muebles a medida
+    if (st.sel.type === "item" && (e.target.name === "name" || e.target.name === "shape")) { // solo en muebles a medida
       pushHistory();
-      itemById(sel.id)[e.target.name] = e.target.value.trim().slice(0, 40);
-      commit(sel);
+      itemById(st.sel.id)[e.target.name] = e.target.value.trim().slice(0, 40);
+      commit(st.sel);
       return;
     }
-    if (sel.type === "item") {
-      const it = itemById(sel.id), v = E.parseNum(e.target.value);
+    if (st.sel.type === "item") {
+      const it = itemById(st.sel.id), v = E.parseNum(e.target.value);
       if (e.target.name === "r" ? !isFinite(v) : !(v * 100 >= 5)) { renderInspector(); return; }
       pushHistory();
       if (e.target.name === "r") it.r = ((Math.round(v) % 360) + 360) % 360;
       else it[e.target.name] = Math.round(v * 100);
-      commit(sel);
+      commit(st.sel);
       return;
     }
-    if (e.target.name === "type" && (sel.type === "wall" || sel.type === "walls")) { // ladrillo propio de cada muro elegido; vacío = el tipo por defecto
+    if (e.target.name === "type" && (st.sel.type === "wall" || st.sel.type === "walls")) { // ladrillo propio de cada muro elegido; vacío = el tipo por defecto
       pushHistory();
       pickedWalls().map(wallById).forEach(function (w) { if (e.target.value) w.type = e.target.value; else delete w.type; });
-      commit(sel);
+      commit(st.sel);
       return;
     }
     const value = E.parseNum(e.target.value) * 100;
     if (!(value >= GRID)) { renderInspector(); return; }
     pushHistory();
-    if (sel.type === "wall") {
-      const w = wallById(sel.id), len = dist(w.a, w.b);
+    if (st.sel.type === "wall") {
+      const w = wallById(st.sel.id), len = dist(w.a, w.b);
       movePoints([{ from: w.b, to: { x: Math.round(w.a.x + (w.b.x - w.a.x) / len * value), y: Math.round(w.a.y + (w.b.y - w.a.y) / len * value) } }]);
     } else {
-      const o = openingById(sel.id);
+      const o = openingById(st.sel.id);
       o[e.target.name] = Math.round(value);
       o.t = clampT(o, o.t);
     }
-    commit(sel);
+    commit(st.sel);
   });
 
   // Cada ajuste numérico: [factor a cm, mínimo, máximo] en la unidad del formulario.
   const LIMITS = { height: [100, 2, 6], slab: [1, 0, 50], screed: [1, 0, 10], coats: [1, 1, 5] };
   function syncSettings() {
-    const s = Object.assign({}, P.DEFAULTS, plan.settings), show = layers();
+    const s = Object.assign({}, P.DEFAULTS, st.plan.settings), show = layers();
     ["ext", "int"].forEach(function (cls) { s[cls] = defaultType(cls).id; });
     renderTypes();
     $$("input, select", settings).forEach(function (el) {
@@ -1632,21 +1399,21 @@ function init(root) {
       else el.value = s[el.name];
     });
     $$("[data-layer]", root).forEach(function (el) { el.checked = show[el.getAttribute("data-layer")]; });
-    if (phaseView) phaseView.value = plan.phaseView || "obra";
+    if (phaseView) phaseView.value = st.plan.phaseView || "obra";
     syncTemplates();
-    title.value = plan.name || UNTITLED;
-    $("[data-level]", root).innerHTML = P.levelsOf(plan).map((level, i) => '<option value="' + i + '"' + (i === (plan.level || 0) ? " selected" : "") + ">" +
+    title.value = st.plan.name || UNTITLED;
+    $("[data-level]", root).innerHTML = P.levelsOf(st.plan).map((level, i) => '<option value="' + i + '"' + (i === (st.plan.level || 0) ? " selected" : "") + ">" +
       escHTML(level.name) + "</option>").join("");
-    $('[data-action="snap"]', root).setAttribute("aria-pressed", String(plan.snap !== false));
-    if (model) renderVariants();
-    refBox.hidden = !(plan.ref && plan.ref.src);
-    if (plan.ref) {
-      $('[data-ref="w"]', root).value = E.fmt(plan.ref.w / 100, 2);
-      $('[data-ref="opacity"]', root).value = plan.ref.opacity;
+    $('[data-action="snap"]', root).setAttribute("aria-pressed", String(st.plan.snap !== false));
+    if (st.model) renderVariants();
+    refBox.hidden = !(st.plan.ref && st.plan.ref.src);
+    if (st.plan.ref) {
+      $('[data-ref="w"]', root).value = E.fmt(st.plan.ref.w / 100, 2);
+      $('[data-ref="opacity"]', root).value = st.plan.ref.opacity;
     }
   }
   function readSettings() {
-    const s = Object.assign({}, P.DEFAULTS, plan.settings);
+    const s = Object.assign({}, P.DEFAULTS, st.plan.settings);
     $$("input, select", settings).forEach(function (el) {
       if (el.type === "checkbox") { s[el.name] = el.checked; return; }
       if (!LIMITS[el.name]) { s[el.name] = el.value; return; }
@@ -1654,7 +1421,7 @@ function init(root) {
       el.setAttribute("aria-invalid", String(!ok));
       if (ok) s[el.name] = v * lim[0];
     });
-    plan.settings = s;
+    st.plan.settings = s;
     save();
     render();
     renderVariants();
@@ -1662,17 +1429,17 @@ function init(root) {
   settings.addEventListener("input", readSettings);
   settings.addEventListener("change", readSettings);
   settings.addEventListener("submit", function (e) { e.preventDefault(); });
-  if (phaseView) phaseView.addEventListener("change", function () { plan.phaseView = phaseView.value; delete plan.viewTemplate; save(); syncTemplates(); render(); });
+  if (phaseView) phaseView.addEventListener("change", function () { st.plan.phaseView = phaseView.value; delete st.plan.viewTemplate; save(); syncTemplates(); render(); });
   function syncTemplates() {
-    $$("[data-view-tpl]", root).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view-tpl") === plan.viewTemplate)); });
+    $$("[data-view-tpl]", root).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-view-tpl") === st.plan.viewTemplate)); });
   }
   function applyViewTemplate(key) {
     const t = VIEW_TEMPLATES[key];
     if (!t) return;
-    plan.layers = Object.assign(layers(), t.layers);
-    plan.phaseView = t.phaseView;
-    plan.viewTemplate = key;
-    if (brand.sheets) plan.doc = brand.sheets.applyTemplate(plan.doc || {}, key);
+    st.plan.layers = Object.assign(layers(), t.layers);
+    st.plan.phaseView = t.phaseView;
+    st.plan.viewTemplate = key;
+    if (brand.sheets) st.plan.doc = brand.sheets.applyTemplate(st.plan.doc || {}, key);
     save();
     syncSettings();
     render();
@@ -1682,37 +1449,37 @@ function init(root) {
   if (typesBox) typesBox.addEventListener("change", typeInput);
   root.addEventListener("change", function (e) {
     const sketchField = e.target.getAttribute && e.target.getAttribute("data-sketch");
-    if (sketchField && sketch) {
+    if (sketchField && st.sketch) {
       const v = E.parseNum(e.target.value);
-      if (sketchField === "width" && v >= 1 && v <= 200) sketch.width = v;
-      if (sketchField === "detail") sketch.detail = v;
+      if (sketchField === "width" && v >= 1 && v <= 200) st.sketch.width = v;
+      if (sketchField === "detail") st.sketch.detail = v;
       detectSketch();
       return;
     }
     if (e.target.hasAttribute && e.target.hasAttribute("data-level")) { stashLevel(); showLevel(Number(e.target.value)); return; }
-    if (e.target.hasAttribute && e.target.hasAttribute("data-variant")) { stashVariant(); showVariant(Number(e.target.value)); if (presenting) setTool("pan"); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute("data-variant")) { stashVariant(); showVariant(Number(e.target.value)); if (st.presenting) setTool("pan"); return; }
     const layer = e.target.getAttribute && e.target.getAttribute("data-layer");
     if (!layer) return;
-    plan.layers = Object.assign(layers(), { [layer]: e.target.checked });
-    delete plan.viewTemplate; // tocó una capa a mano: la vista ya no es la de la plantilla
+    st.plan.layers = Object.assign(layers(), { [layer]: e.target.checked });
+    delete st.plan.viewTemplate; // tocó una capa a mano: la vista ya no es la de la plantilla
     save();
     syncTemplates();
     render();
     if (!stage3d.hidden) showView("3d"); // el techo se muestra u oculta también en 3D
   });
   title.addEventListener("change", function () {
-    plan.name = title.value.trim();
-    title.value = plan.name || UNTITLED;
+    st.plan.name = title.value.trim();
+    title.value = st.plan.name || UNTITLED;
     save();
     render();
   });
   title.addEventListener("focus", function () { title.select(); });
   root.addEventListener("input", function (e) {
     const key = e.target.getAttribute && e.target.getAttribute("data-ref");
-    if (!key || !plan.ref) return;
+    if (!key || !st.plan.ref) return;
     const v = E.parseNum(e.target.value);
     if (key === "w" ? !(v >= 0.5) : !(v >= 0)) return;
-    plan.ref[key] = key === "w" ? Math.round(v * 100) : v;
+    st.plan.ref[key] = key === "w" ? Math.round(v * 100) : v;
     save();
     render();
   });

@@ -246,8 +246,19 @@ export interface Plan extends LevelContent {
   doc?: unknown;
   /** Losas a distintas alturas: un punto dentro de un ambiente y la cara superior de su losa (z, desde el piso de la planta). */
   slabs?: SlabMark[];
-  /** Imagen de referencia para calcar. No se guarda en el historial. */
-  ref?: unknown;
+  /** Imagen de referencia para calcar (o el boceto aplicado). No se guarda en el historial. */
+  ref?: RefImage | null;
+}
+
+/** Imagen de fondo para calcar: posición y ancho en cm, opacidad y giro en grados. */
+export interface RefImage {
+  src: string;
+  ratio: number;
+  w: number;
+  x: number;
+  y: number;
+  opacity: number;
+  rot?: number;
 }
 
 export interface SlabMark extends Point {

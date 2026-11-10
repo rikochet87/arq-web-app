@@ -4,22 +4,23 @@ import { data as D } from "../../lib/manifest";
 import { plan as P } from "../../lib/plan";
 import type { RoomLabel } from "../types/plan";
 import type { Schedules } from "../types/modules";
-import type { EditorContext } from "./context";
+import { ops } from "./context";
+import { st } from "./state";
 import { download, fileName } from "./files";
 
-export function openSchedules(ed: EditorContext) {
-  const brand = window.__BRAND__, hint = ed.hint;
+export function openSchedules() {
+  const brand = window.__BRAND__, hint = ops.hint;
   const S = brand.schedules, U = brand.panel;
   if (!S || !U) return;
-  if (!P.levelsOf(ed.plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para armar las planillas."; return; }
-  const esc = U.esc, levelData = (li: number) => (li === (ed.plan.level || 0) ? ed.plan : (ed.plan.levels || [])[li]);
+  if (!P.levelsOf(st.plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para armar las planillas."; return; }
+  const esc = U.esc, levelData = (li: number) => (li === (st.plan.level || 0) ? st.plan : (st.plan.levels || [])[li]);
   let t: Schedules | null = null;
   const input = (key: string, value: string, attrs: string) => '<input type="text" inputmode="decimal" autocomplete="off" data-key="' + key + '" value="' + esc(value) + '"' + attrs + ">";
   function table(cols: string[], body: string) {
     return '<div class="sp-scroll"><table class="sp-table"><thead><tr>' + cols.map((c) => "<th>" + esc(c) + "</th>").join("") + "</tr></thead><tbody>" + body + "</tbody></table></div>";
   }
   function render(tab: string): string {
-    const plan = ed.plan, sched = S!.build(plan);
+    const plan = st.plan, sched = S!.build(plan);
     t = sched;
     const phased = P.hasPhases(plan);
     if (tab === "rooms") {
@@ -50,20 +51,20 @@ export function openSchedules(ed: EditorContext) {
     if (el.hasAttribute("data-open")) {
       const g = t.openings[+(el.getAttribute("data-open") as string)], v = E.parseNum(el.value);
       if (!(v >= 0.3 && v <= (field === "w" ? 6 : 3.5))) { el.setAttribute("aria-invalid", "true"); return; }
-      ed.pushHistory();
-      P.levelsOf(ed.plan, "todo").forEach(function (_lv, li) {
+      ops.pushHistory();
+      P.levelsOf(st.plan, "todo").forEach(function (_lv, li) {
         (levelData(li).openings || []).forEach(function (o) { if (g.ids.indexOf(o.id) >= 0) o[field as "w" | "h"] = Math.round(v * 100); });
       });
     } else if (el.hasAttribute("data-room")) {
       const r = t.rooms[+(el.getAttribute("data-room") as string)], data = levelData(r.level);
       if (field === "name" && !el.value.trim()) return;
-      ed.pushHistory();
+      ops.pushHistory();
       data.labels = data.labels || [];
       let tag: RoomLabel | undefined = data.labels.find((l) => P.inside(r.points, l));
       if (!tag) { tag = { x: Math.round(r.cx), y: Math.round(r.cy), name: r.name, floor: r.floor }; data.labels.push(tag); }
       tag[field as "name" | "floor"] = field === "name" ? el.value.trim().slice(0, 40) : el.value;
     } else return;
-    ed.commit(ed.sel);
+    ops.commit(st.sel);
     (panel as NonNullable<typeof panel>).refresh();
   }
   const panel = U.open({
@@ -72,7 +73,7 @@ export function openSchedules(ed: EditorContext) {
     render: render, change: change,
     action: function (id, tab) {
       if (id === "print") { window.print(); return; }
-      const plan = ed.plan, phased = P.hasPhases(plan), data = tab === "rooms" ? S.roomTable(S.build(plan), phased) : S.openingTable(S.build(plan), phased);
+      const plan = st.plan, phased = P.hasPhases(plan), data = tab === "rooms" ? S.roomTable(S.build(plan), phased) : S.openingTable(S.build(plan), phased);
       download(fileName(plan.name, "csv").replace(/\.csv$/, tab === "rooms" ? "-locales.csv" : "-carpinterias.csv"), new Blob([S.csv(data)], { type: "text/csv;charset=utf-8" }));
     }
   });
