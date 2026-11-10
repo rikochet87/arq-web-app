@@ -1,6 +1,6 @@
 /* CalcuObra — vista 3D del plano. El motor (three.js, ~750 KB) se descarga recién cuando se pide la vista.
-   Se carga como script común y no como módulo, para que también funcione al abrir el HTML con doble clic
-   (desde file:// el navegador no deja importar módulos). three.classic.min.js es three.module.min.js más
+   El motor no entra en el paquete de Vite: se descarga aparte, como script común, solo al abrir la vista.
+   three.classic.min.js es three.module.min.js más
    OrbitControls, empaquetados con: esbuild --bundle --format=iife --global-name=__THREE__ --minify.
    Los volúmenes los arma lib/plan.js (solids); acá se convierten en mallas y se muestran, con cuatro
    modos de presentación: recorrido a pie, plantas separadas, rayos X y corte por altura. */

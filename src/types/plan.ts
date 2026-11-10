@@ -71,9 +71,9 @@ export interface Opening {
   t: number;
   /** Clave de la biblioteca data.openings (p80, v120…). */
   type: string;
-  /** Ancho y alto propios; sin valor, los del tipo. */
-  w?: number;
-  h?: number;
+  /** Ancho y alto: al crearla se copian del tipo y después se pueden cambiar. */
+  w: number;
+  h: number;
   /** Antepecho propio; sin valor, el del tipo. */
   sill?: number;
   /** Hacia qué lado del muro abre (true = el opuesto). */
@@ -169,6 +169,11 @@ export interface Level extends Partial<LevelContent> {
   name: string;
 }
 
+/** Una planta con todo su contenido, como la devuelve levelsOf(). */
+export interface LevelData extends LevelContent {
+  name: string;
+}
+
 /* ---------- Ajustes de obra ---------- */
 
 export type RoofKind = "none" | "losa" | "chapa" | "tejas";
@@ -227,6 +232,12 @@ export interface Plan extends LevelContent {
   variant?: number;
   /** Capas visibles en el editor. */
   layers?: Partial<Record<string, boolean>>;
+  /** Losas a distintas alturas: un punto dentro de un ambiente y la cara superior de su losa (z, desde el piso de la planta). */
+  slabs?: SlabMark[];
   /** Imagen de referencia para calcar. No se guarda en el historial. */
   ref?: unknown;
+}
+
+export interface SlabMark extends Point {
+  z: number;
 }

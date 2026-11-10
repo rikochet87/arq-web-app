@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "Diseñador de planos, cómputo de materiales y presupuesto de obra para Argentina",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
