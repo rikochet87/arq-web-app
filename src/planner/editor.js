@@ -2,18 +2,20 @@
    símbolos están en lib/plan.ts; las constantes, las bibliotecas, las planillas y el presupuesto, en los otros módulos de
    src/planner/. */
 import * as G from "./geometry.ts";
-import { COLOR_NAMES, GRID, HANDOFF, HINTS, KEYS, OPTIONS, SHELF, SHELF_MAX, STORE, UNTITLED, VIEW_TEMPLATES } from "./constants.ts";
+import { GRID, HANDOFF, HINTS, KEYS, OPTIONS, SHELF, SHELF_MAX, STORE, UNTITLED, VIEW_TEMPLATES } from "./constants.ts";
 import { $, $$, escHTML } from "./dom.ts";
 import { download, fileName as planFileName } from "./files.ts";
 import { itemLibraryHTML, libraryHTML } from "./library.ts";
 import { openBudget } from "./budget.ts";
 import { openSchedules } from "./schedules.ts";
-import { itemById, layers, nextId, noteById, openingById, pickedWalls, roomAt, st, surfaceById, wallById } from "./state.ts";
+import { itemById, layers, nextId, noteById, openingById, pickedWalls, roomAt, selected, st, surfaceById, wallById, wallsSel } from "./state.ts";
 import { bindRender, render } from "./render.ts";
+import { renderInspector } from "./inspector.ts";
+import { defaultType, ensureTypes, everyWall, renderTypes, typeInput } from "./walltypes.ts";
 import { applySketch, cancelSketch, detectSketch, readSketch } from "./sketch.ts";
 import { exportDrawing, exportDxf, exportJson, openPlanFile, openRefImage } from "./io.ts";
 import { ops } from "./context.ts";
-import { clampT, fit, hasWires, hitItem, hitNote, hitOpening, hitSurface, hitWall, itemPoint, movePoints, px, snap, toWorld } from "./viewport.ts";
+import { clampT, fit, hitItem, hitNote, hitOpening, hitSurface, hitWall, itemPoint, movePoints, px, snap, toWorld } from "./viewport.ts";
 
 const { dist, same, copy, round, n1, pt1, project, straight, simplify } = G;
 
@@ -184,17 +186,7 @@ function init(root) {
     st.plan.section = v.section || null;
     showLevel(Math.min(v.level || 0, st.plan.levels.length - 1));
   }
-  const wallsSel = (ids) => ids.length > 1 ? { type: "walls", ids: ids } : ids.length ? { type: "wall", id: ids[0] } : null;
-  function selected() {
-    if (!st.sel) return null;
-    if (st.sel.type === "walls") { // varios muros: quedan los que sigan existiendo
-      st.sel = wallsSel(st.sel.ids.filter((id) => wallById(id)));
-      if (!st.sel || st.sel.type === "wall") return st.sel ? wallById(st.sel.id) : null;
-      return st.sel.ids.map(wallById);
-    }
-    return st.sel.type === "wall" ? wallById(st.sel.id) : st.sel.type === "opening" ? openingById(st.sel.id) : st.sel.type === "item" ? itemById(st.sel.id) : st.sel.type === "surface" ? surfaceById(st.sel.id) :
-      st.sel.type === "note" ? noteById(st.sel.id) : roomAt(st.sel);
-  }
+
 
   // Guarda, cambia la selección y redibuja todo.
   function commit(selection) {
@@ -228,193 +220,7 @@ function init(root) {
 
   // ---------- Dibujo: src/planner/render.ts ----------
 
-  // ---------- Tipos de muro ----------
-  function defaultType(cls) {
-    const types = P.wallTypesOf(st.plan), lib = P.wallTypesOf({});
-    return types[(st.plan.settings || {})[cls]] || types[P.DEFAULTS[cls]] || lib[P.DEFAULTS[cls]];
-  }
-  const thickText = (t) => E.fmt(P.typeThick(t, "ext"), 1) + " cm como exterior · " + E.fmt(P.typeThick(t, "int"), 1) + " cm como interior";
-  // Todos los muros del plano: plantas y opciones de diseño, con la planta activa tomada de los campos de trabajo.
-  function everyWall() {
-    const list = st.plan.walls.slice();
-    (st.plan.levels || []).forEach(function (lv, i) { if (i !== (st.plan.level || 0)) list.push.apply(list, lv.walls || []); });
-    (st.plan.variants || []).forEach(function (v, i) {
-      if (i === (st.plan.variant || 0)) return;
-      (v.levels || []).forEach(function (lv) { list.push.apply(list, lv.walls || []); });
-    });
-    return list;
-  }
-  function ensureTypes() { if (!Array.isArray(st.plan.wallTypes) || !st.plan.wallTypes.length) st.plan.wallTypes = P.wallTypeList(st.plan); }
-
-  const LAYER_COLORS = { azotado: "#4f9bd9", grueso: "#8d8d8d", fino: "#d9d9d9" };
-  // Corte del muro, capa por capa y a escala: de la cara exterior (izquierda) a la interior.
-  function layerSVG(t) {
-    const parts = [];
-    const face = (f, outer) => {
-      const list = [["azotado", f.azotado], ["grueso", f.grueso], ["fino", f.fino ? D.finishes.fineThick : 0]].filter((l) => l[1] > 0);
-      return outer ? list.slice().reverse() : list;
-    };
-    face(t.ext, true).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
-    parts.push({ cls: "core", w: D.bricks[t.brick].e });
-    face(t.int, false).forEach((l) => parts.push({ cls: l[0], w: l[1] }));
-    const total = parts.reduce((s, p) => s + p.w, 0), W = 260, k = W / total;
-    let x = 0;
-    const rects = parts.map(function (p) {
-      const r = '<rect x="' + (x * k).toFixed(1) + '" y="0" width="' + Math.max(1, p.w * k).toFixed(1) + '" height="34" fill="' +
-        (p.cls === "core" ? "url(#brick-hatch)" : LAYER_COLORS[p.cls]) + '"/>';
-      x += p.w;
-      return r;
-    }).join("");
-    return '<svg class="type-svg" viewBox="0 0 260 46" role="img" aria-label="Capas del muro, de afuera hacia adentro">' +
-      '<defs><pattern id="brick-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#5a3b2e"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c2785a" stroke-width="2"/></pattern></defs>' +
-      rects + '<text x="0" y="45">Afuera</text><text x="260" y="45" text-anchor="end">Ambiente</text></svg>';
-  }
-  function renderTypes() {
-    // Los tipos de muro por defecto de los Ajustes de obra se eligen entre los tipos de este plano.
-    ["ext", "int"].forEach(function (cls) {
-      const el = settings.elements[cls];
-      if (!el) return;
-      el.innerHTML = P.wallTypeList(st.plan).map((t) => '<option value="' + escHTML(t.id) + '">' + escHTML(t.name) + "</option>").join("");
-      el.value = defaultType(cls).id;
-    });
-    const box = $("[data-types]", root);
-    if (!box) return;
-    const list = P.wallTypeList(st.plan);
-    if (!list.some((t) => t.id === st.editType)) st.editType = list[0].id;
-    const t = list.find((x) => x.id === st.editType), used = everyWall().filter((w) => w.type === t.id).length;
-    const isDefault = ["ext", "int"].filter((c) => defaultType(c).id === t.id);
-    const num = (face, layer, labelText) => "<label>" + labelText + ' (cm) <input type="text" inputmode="decimal" autocomplete="off" data-layer-cm="' + face + "." + layer +
-      '" value="' + E.fmt(t[face][layer], 1) + '"></label>';
-    const fine = (face) => '<label class="type-check"><input type="checkbox" data-layer-fino="' + face + '"' + (t[face].fino ? " checked" : "") + "> Revoque fino</label>";
-    const faceBox = (face, title) => '<fieldset class="type-face"><legend>' + title + "</legend>" + num(face, "azotado", "Azotado") +
-      num(face, "grueso", "Grueso") + fine(face) + "</fieldset>";
-    box.innerHTML =
-      '<div class="type-pick"><select data-type-pick aria-label="Tipo de muro">' + list.map((x) => '<option value="' + escHTML(x.id) + '"' + (x.id === t.id ? " selected" : "") + ">" +
-        escHTML(x.name) + "</option>").join("") + "</select>" +
-      '<button type="button" class="btn btn-ghost btn-sm" data-action="type-new">Duplicar</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-action="type-delete"' + (isDefault.length ? " disabled" : "") + ">Borrar</button></div>" +
-      layerSVG(t) +
-      '<p class="type-sum">' + thickText(t) + "<br>" + (used ? "Lo usan " + used + (used === 1 ? " muro" : " muros") : "Ningún muro lo usa directamente") +
-      (isDefault.length ? " · es el tipo por defecto de los muros " + isDefault.map((c) => c === "ext" ? "exteriores" : "interiores").join(" e ") : "") + ".</p>" +
-      '<div class="type-form"><label>Nombre <input type="text" maxlength="60" autocomplete="off" data-type-name value="' + escHTML(t.name) + '"></label>' +
-      '<label>Ladrillo <select data-type-brick>' + Object.keys(D.bricks).map((key) => '<option value="' + key + '"' + (key === t.brick ? " selected" : "") + ">" +
-        escHTML(D.bricks[key].label) + "</option>").join("") + "</select></label>" +
-      faceBox("ext", "Cara exterior") + faceBox("int", "Cara hacia un ambiente") + "</div>" +
-      '<p class="ws-tip">Los cambios valen para todos los muros de este tipo, en todas las plantas y opciones. La cara exterior se usa del lado de afuera de los muros exteriores.</p>';
-  }
-  // Cambia una propiedad del tipo abierto y vuelve a calcular todo.
-  function editTypeWith(fn) {
-    pushHistory();
-    ensureTypes();
-    const t = st.plan.wallTypes.find((x) => x.id === st.editType);
-    if (!t) return;
-    fn(t);
-    Object.assign(t, P.cleanType(t));
-    save();
-    render();
-    renderTypes();
-  }
-  function typeInput(e) {
-    const el = e.target;
-    if (el.matches("[data-type-pick]")) { st.editType = el.value; renderTypes(); return; }
-    if (e.type !== "change") return; // nombre y espesores se toman al confirmar, para no rehacer el panel mientras se tipea
-    if (el.matches("[data-type-name]")) {
-      const name = el.value.trim();
-      if (!name) return;
-      editTypeWith((t) => { t.name = name; });
-      return;
-    }
-    if (el.matches("[data-type-brick]")) { editTypeWith((t) => { t.brick = el.value; }); return; }
-    if (el.matches("[data-layer-fino]")) { const face = el.getAttribute("data-layer-fino"); editTypeWith((t) => { t[face].fino = el.checked; }); return; }
-    if (el.matches("[data-layer-cm]")) {
-      const parts = el.getAttribute("data-layer-cm").split("."), v = el.value.trim() === "" ? 0 : E.parseNum(el.value);
-      if (!(v >= 0 && v <= 5)) { el.setAttribute("aria-invalid", "true"); return; }
-      editTypeWith((t) => { t[parts[0]][parts[1]] = v; });
-    }
-  }
-
-  const PHASE_OPTIONS = [["", "A construir"], ["existente", "Existente"], ["demoler", "Existente a demoler"]];
-  const phaseSelect = (current, mixed) => '<label>Fase <select name="phase">' + (mixed ? '<option value="mixed" selected disabled>Varias</option>' : "") +
-    PHASE_OPTIONS.map((o) => '<option value="' + o[0] + '"' + (!mixed && (current || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
-
-  function renderInspector() {
-    const item = selected();
-    const field = (name, labelText, value) => "<label>" + labelText + ' <input name="' + name + '" type="text" inputmode="decimal" autocomplete="off" value="' +
-      E.fmt(value, 2) + '"> m</label>';
-    const button = (action, labelText) => '<button type="button" class="btn btn-ghost" data-action="' + action + '">' + labelText + "</button>";
-    const typeOptions = (current) => P.wallTypeList(st.plan).map((t) => '<option value="' + escHTML(t.id) + '"' + (t.id === current ? " selected" : "") + ">" +
-      escHTML(t.name) + "</option>").join("");
-    const swatches = (current, first) => '<span class="swatches" role="group" aria-label="Color">' + [""].concat(P.PALETTE).map((c) => '<button type="button" class="swatch" data-swatch="' + c +
-      '" aria-pressed="' + ((current || "") === c) + '" title="' + (c ? COLOR_NAMES[c] : first) + '" aria-label="' + (c ? COLOR_NAMES[c] : first) + '"' + (c ? ' style="--sw:' + c + '"' : "") + "></button>").join("") + "</span>";
-    const weight = (name, current, isText) => "<label>" + (isText ? "Tamaño" : "Grosor") + ' <select name="' + name + '">' + [["s", isText ? "Chico" : "Fino"], ["m", "Medio"], ["l", isText ? "Grande" : "Grueso"]]
-      .map((o) => '<option value="' + o[0] + '"' + ((current || "m") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>";
-    const drawing = st.tool === "wall" || st.tool === "room" || st.tool === "arc", annotating = !!NOTES[st.tool];
-    inspector.hidden = !item && !drawing && !annotating;
-    if (!item && annotating) { // anotando: color y grosor de lo que se dibuje a continuación
-      inspector.innerHTML = "<strong>" + escHTML(NOTES[st.tool]) + "</strong>" + swatches(st.nextNote.color, "Tinta") + weight("nextW", st.nextNote.w, st.tool === "text");
-      return;
-    }
-    if (!item) { // dibujando: se elige el ladrillo de los muros que vienen
-      if (drawing) {
-        const t = P.wallTypesOf(st.plan)[st.nextType];
-        inspector.innerHTML = '<strong>Muros nuevos</strong><label>Tipo <select name="nextType"><option value="">Por defecto, según quede exterior o interior</option>' + typeOptions(st.nextType) +
-          "</select></label><span>" + (t ? thickText(t) : "se define en Ajustes de obra") + "</span>" +
-          '<label>Fase <select name="nextPhase"><option value="">A construir</option><option value="existente"' + (st.nextPhase === "existente" ? " selected" : "") +
-          ">Existente (relevamiento)</option></select></label>";
-      }
-      return;
-    }
-    if (st.sel.type === "note") {
-      inspector.innerHTML = "<strong>" + escHTML(NOTES[item.kind]) + "</strong>" +
-        (item.kind === "text" ? '<label>Texto <input name="text" type="text" autocomplete="off" maxlength="120" value="' + escHTML(item.text) + '"></label>' : "") +
-        swatches(item.color, "Tinta") + weight("w", item.w, item.kind === "text") + button("duplicate", "Duplicar") + button("delete", "Borrar");
-      return;
-    }
-    if (st.sel.type === "walls") {
-      const types = Object.keys(item.reduce((set, w) => { set[w.type || ""] = true; return set; }, {})), mixed = types.length > 1;
-      inspector.innerHTML = "<strong>" + item.length + " muros</strong>" + '<label>Tipo <select name="type">' + (mixed ? '<option value="mixed" selected disabled>Varios</option>' : "") +
-        '<option value=""' + (!mixed && types[0] === "" ? " selected" : "") + ">Por defecto</option>" + typeOptions(mixed ? null : types[0]) + "</select></label>" +
-        phaseSelect(item[0].phase, item.some((w) => (w.phase || "") !== (item[0].phase || ""))) + "<span>" +
-        E.fmt(item.reduce((sum, w) => sum + dist(w.a, w.b), 0) / 100, 2) + " m en total</span>" + button("delete", "Borrar");
-      return;
-    }
-    if (st.sel.type === "wall") {
-      // Clase (exterior o interior) detectada sola, y tipo que le tocaría por defecto.
-      const edge = st.model.edges.find((e) => e.wall === item.id) || { cls: "ext" }, outside = edge.cls !== "int";
-      const types = P.wallTypesOf(st.plan), usual = defaultType(edge.cls), t = types[item.type] || usual;
-      inspector.innerHTML = "<strong>" + (outside ? "Muro exterior" : "Muro interior") + "</strong>" + field("length", "Largo", dist(item.a, item.b) / 100) +
-        '<label>Tipo <select name="type"><option value="">Por defecto: ' + escHTML(usual.name) + "</option>" + typeOptions(item.type) + "</select></label>" +
-        "<span>" + E.fmt(P.typeThick(t, edge.cls), 1) + " cm terminado · ladrillo de " + E.fmt(D.bricks[t.brick].e, 1) + " cm</span>" + phaseSelect(item.phase) +
-        '<button type="button" class="btn btn-ghost" data-action="type-edit" data-type="' + escHTML(t.id) + '">Editar el tipo</button>' +
-        button("split", "Dividir en dos") + button("delete", "Borrar");
-    } else if (st.sel.type === "opening") {
-      const def = P.typeOf(item), host = wallById(item.wall), hostPhase = host ? P.wallPhase(host) : "nueva";
-      // En un muro existente la abertura puede quedar, retirarse o ser un vano nuevo; en un muro nuevo siempre es nueva.
-      const phaseBox = hostPhase === "existente" ? '<label>Fase <select name="phase">' + [["", "Existente, como su muro"], ["nueva", "Vano nuevo (a construir)"], ["demoler", "A retirar"]]
-        .map((o) => '<option value="' + o[0] + '"' + ((item.phase === "existente" ? "" : item.phase || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>").join("") + "</select></label>"
-        : hostPhase === "demoler" ? "<span>Se retira con su muro</span>" : "";
-      inspector.innerHTML = "<strong>" + escHTML(def.label) + "</strong>" + field("w", "Ancho", item.w / 100) + field("h", "Alto", item.h / 100) + phaseBox +
-        (/swing|double|garage/.test(def.symbol) ? button("flip-side", "Cambiar lado") : "") +
-        (def.symbol === "swing" ? button("flip-hinge", "Cambiar bisagra") : "") + button("duplicate", "Duplicar") + button("delete", "Borrar");
-    } else if (st.sel.type === "surface") {
-      inspector.innerHTML = '<strong>Exterior</strong><label>Tipo <select name="type">' + Object.keys(D.surfaces).map((key) => '<option value="' + key + '"' + (key === item.type ? " selected" : "") + ">" +
-        escHTML(D.surfaces[key].label) + "</option>").join("") + "</select></label>" + field("w", "Ancho", item.w / 100) + field("h", "Largo", item.h / 100) + button("delete", "Borrar");
-    } else if (st.sel.type === "item") {
-      const own = D.items[item.type].custom;
-      inspector.innerHTML = "<strong>" + escHTML(D.items[item.type].label) + "</strong>" +
-        (own ? '<label>Nombre <input name="name" type="text" autocomplete="off" maxlength="40" value="' + escHTML(item.name || "") + '"></label>' : "") +
-        field("w", "Ancho", item.w / 100) + field("d", "Fondo", item.d / 100) +
-        (own ? field("tall", "Alto", (item.tall || D.items[item.type].tall) / 100) + '<label>Forma <select name="shape"><option value="">Rectangular</option><option value="round"' +
-          (item.shape === "round" ? " selected" : "") + ">Redonda</option></select></label>" : "") +
-        '<label>Giro <input name="r" type="text" inputmode="numeric" autocomplete="off" value="' + (item.r || 0) + '"> °</label>' +
-        button("rotate", "Girar 90°") + button("duplicate", "Duplicar") + button("shelf-add", "Guardar en Mis muebles") + (hasWires(item.id) ? button("unwire", "Quitar cables") : "") + button("delete", "Borrar");
-    } else {
-      inspector.innerHTML = "<strong>Ambiente</strong><label>Nombre " + '<input name="name" type="text" list="room-types" autocomplete="off" value="' +
-        escHTML(item.name) + '"></label><datalist id="room-types">' + D.roomTypes.map((n) => '<option value="' + escHTML(n) + '">').join("") +
-        '</datalist><label>Piso <select name="floor">' + Object.keys(D.floors).map((key) => '<option value="' + key + '"' + (key === item.floor ? " selected" : "") + ">" +
-          escHTML(D.floors[key].label) + "</option>").join("") + "</select></label>" + swatches(item.color, "Sin color") + "<span>" + E.fmt(item.area, 1) + " m²</span>";
-    }
-  }
+  // ---------- Tipos de muro: src/planner/walltypes.ts · Inspector: src/planner/inspector.ts ----------
 
   function setTool(name, type, own) {
     st.tool = name; st.pick = type || null; st.stamp = own || null; st.chain = null; st.hover = null; st.ghost = null; st.typed = ""; st.measure = null; st.arcEnd = null; st.wireFrom = null;

@@ -105,3 +105,18 @@ export const noteById = (id: Id) => st.plan.notes.find((nt) => nt.id === id);
 export const roomAt = (p: Point) => (st.model as Model).rooms.find((r) => P.inside(r.points, p));
 /** Ids de los muros elegidos (uno o varios). */
 export const pickedWalls = (): Id[] => !st.sel ? [] : st.sel.type === "wall" ? [st.sel.id as Id] : st.sel.type === "walls" ? st.sel.ids as Id[] : [];
+/** Selección de muros: ninguno, uno solo o varios. */
+export const wallsSel = (ids: Id[]): Selection | null => ids.length > 1 ? { type: "walls", ids: ids } : ids.length ? { type: "wall", id: ids[0] } : null;
+/** Lo elegido, como objeto del plano: un muro, varios (lista), una abertura, un objeto, una superficie, una anotación o un ambiente.
+ *  Si eran varios muros y alguno ya no existe, la selección se achica a los que quedan. */
+export function selected() {
+  if (!st.sel) return null;
+  if (st.sel.type === "walls") { // varios muros: quedan los que sigan existiendo
+    st.sel = wallsSel((st.sel.ids as Id[]).filter((id) => wallById(id)));
+    if (!st.sel || st.sel.type === "wall") return st.sel ? wallById(st.sel.id as Id) : null;
+    return (st.sel.ids as Id[]).map(wallById);
+  }
+  const id = st.sel.id as Id;
+  return st.sel.type === "wall" ? wallById(id) : st.sel.type === "opening" ? openingById(id) : st.sel.type === "item" ? itemById(id) : st.sel.type === "surface" ? surfaceById(id) :
+    st.sel.type === "note" ? noteById(id) : roomAt(st.sel as unknown as Point);
+}
