@@ -1,4 +1,4 @@
-/* CalcuObra — interfaz: lee el formulario, llama al motor (lib/calc.js) y pinta el resultado. */
+/* CalcuObra — interfaz: lee el formulario, llama al motor (lib/calc.ts) y pinta el resultado. */
 (function () {
   "use strict";
 

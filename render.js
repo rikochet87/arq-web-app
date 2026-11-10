@@ -1,4 +1,4 @@
-/* CalcuObra — render del plano: los mismos volúmenes de la vista 3D (lib/plan.js, solids), con cielo, sol,
+/* CalcuObra — render del plano: los mismos volúmenes de la vista 3D (lib/plan.ts, solids), con cielo, sol,
    sombras y materiales. Usa el motor que carga view3d.js.
    Mientras se mueve la cámara se ve una imagen rápida. Al soltarla, la imagen se afina sola: se promedian
    SAMPLES cuadros, cada uno con el sol corrido dentro de su disco (sombra con penumbra), con una luz de cielo
@@ -240,7 +240,7 @@
     ladrillo: ["Ladrillo visto", "brick", {}],
     piedra: ["Piedra", "stone", {}]
   };
-  // De qué está hecho cada mueble o artefacto de la biblioteca (lib/manifest.js). Lo que no figura va de madera.
+  // De qué está hecho cada mueble o artefacto de la biblioteca (lib/manifest.ts). Lo que no figura va de madera.
   const MADE = {
     sofa3: "sofa", sofa2: "sofa", sillon: "sofa", cama2: "bed", camaQueen: "bed", cama1: "bed",
     mesada: "granite", cocina: "enamel", lavarropas: "enamel", termotanque: "enamel", heladera: "steel",

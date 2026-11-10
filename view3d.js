@@ -2,7 +2,7 @@
    El motor no entra en el paquete de Vite: se descarga aparte, como script común, solo al abrir la vista.
    three.classic.min.js es three.module.min.js más
    OrbitControls, empaquetados con: esbuild --bundle --format=iife --global-name=__THREE__ --minify.
-   Los volúmenes los arma lib/plan.js (solids); acá se convierten en mallas y se muestran, con cuatro
+   Los volúmenes los arma lib/plan.ts (solids); acá se convierten en mallas y se muestran, con cuatro
    modos de presentación: recorrido a pie, plantas separadas, rayos X y corte por altura. */
 (function () {
   "use strict";

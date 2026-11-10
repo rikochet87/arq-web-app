@@ -58,7 +58,7 @@ The **budget** follows the formal public works method: pick the jobs, enter quan
 
 ## Technical notes
 
-- **Static site, no backend**: HTML, CSS and JavaScript, built with **Vite** and moving to **TypeScript** file by file. Each page loads one entry module from `src/entries/`. The model's types live in `src/types/plan.ts`; `lib/plan.ts` (geometry and quantity takeoff) is the first module already in TypeScript. A small Node script generates one page per calculator from a single list, so adding a calculator is one function and one entry.
+- **Static site, no backend**: HTML, CSS and JavaScript, built with **Vite** and moving to **TypeScript** file by file. Each page loads one entry module from `src/entries/`. The types live in `src/types/` (the plan model and the construction data). Already in TypeScript: `lib/manifest.ts` (construction data), `lib/calc.ts` (calculation engine) and `lib/plan.ts` (geometry and quantity takeoff). A small Node script generates one page per calculator from a single list, so adding a calculator is one function and one entry.
 - **Three.js** for the 3D view and the DXF renderer.
 - **Privacy by design**: plans, prices and budgets are stored only in the browser. Nothing is uploaded and no account is needed.
 - Deployed on Vercel.

@@ -1,4 +1,4 @@
-/* CalcuObra — diseñador de planos: editor SVG. La geometría, el cómputo y los símbolos están en lib/plan.js. */
+/* CalcuObra — diseñador de planos: editor SVG. La geometría, el cómputo y los símbolos están en lib/plan.ts. */
 (function () {
   "use strict";
 
