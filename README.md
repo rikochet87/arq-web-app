@@ -1,6 +1,8 @@
 <div align="center">
 
-# CalcuObra
+# Arqium
+
+*(Antes CalcuObra.)*
 
 ### Draw your house and know how much material it takes
 
@@ -11,7 +13,7 @@ A free floor plan designer and construction calculators for Argentina.
 
 </div>
 
-![CalcuObra home](docs/capturas/index.png)
+![Arqium home](docs/capturas/index.png)
 
 ---
 
@@ -19,7 +21,7 @@ A free floor plan designer and construction calculators for Argentina.
 
 Anyone planning to build or extend a house in Argentina ends up asking the same questions: how many bricks, how many bags of cement, how much paint. The usual answer is a spreadsheet, a builder's estimate or a guess.
 
-CalcuObra answers them while you draw. You sketch the plan, and the bill of materials updates with every wall, door and window — using the brick types, mortar mixes and package sizes you can actually buy in Argentina.
+Arqium answers them while you draw. You sketch the plan, and the bill of materials updates with every wall, door and window — using the brick types, mortar mixes and package sizes you can actually buy in Argentina.
 
 ## Floor plan designer
 

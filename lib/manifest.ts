@@ -1,4 +1,4 @@
-/* CalcuObra — datos de marca y tablas de materiales.
+/* Arqium — datos de marca y tablas de materiales.
    Todo lo que es "dato de obra" vive acá, separado de las fórmulas (lib/calc.ts).
    Los valores son orientativos: salen del método de los coeficientes de aporte
    y de rendimientos típicos de fabricantes. Conviene que los revise alguien del
@@ -292,4 +292,4 @@ export const data: BrandData = {
 };
 
 // engine lo agrega lib/calc.ts y cada módulo suma lo suyo (plan, cirsoc…).
-window.__BRAND__ = { name: "CalcuObra", tagline: "Calculadoras de construcción gratis", data: data } as Partial<Brand> as Brand;
+window.__BRAND__ = { name: "Arqium", tagline: "Proyecto BIM, cómputo y obra", data: data } as Partial<Brand> as Brand;

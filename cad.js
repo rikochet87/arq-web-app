@@ -1,4 +1,4 @@
-/* CalcuObra — "De AutoCAD a render", en la portada: lee los DXF en el dispositivo (lib/dxfin.js), muestra
+/* Arqium — "De AutoCAD a render", en la portada: lee los DXF en el dispositivo (lib/dxfin.js), muestra
    qué entendió de cada dibujo y renderiza la planta (render.js). Los archivos no se suben a ningún lado.
    Se cargan en tres casilleros: la planta (o el plano completo), los cortes y las vistas. Un archivo con varios
    dibujos se separa en dibujos sueltos y cada uno recibe un papel: planta, corte, vista o no usar. Solo la planta

@@ -1,4 +1,4 @@
-/* CalcuObra — vista 3D del plano. El motor (three.js, ~750 KB) se descarga recién cuando se pide la vista.
+/* Arqium — vista 3D del plano. El motor (three.js, ~750 KB) se descarga recién cuando se pide la vista.
    El motor no entra en el paquete de Vite: se descarga aparte, como script común, solo al abrir la vista.
    three.classic.min.js es three.module.min.js más
    OrbitControls, empaquetados con: esbuild --bundle --format=iife --global-name=__THREE__ --minify.

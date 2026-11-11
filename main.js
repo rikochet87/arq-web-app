@@ -1,4 +1,4 @@
-/* CalcuObra — interfaz: lee el formulario, llama al motor (lib/calc.ts) y pinta el resultado. */
+/* Arqium — interfaz: lee el formulario, llama al motor (lib/calc.ts) y pinta el resultado. */
 (function () {
   "use strict";
 

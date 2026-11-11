@@ -1,4 +1,4 @@
-/* CalcuObra — página "Presupuesto de obra": el cómputo (trabajos con su cantidad), los rubros con su análisis de
+/* Arqium — página "Presupuesto de obra": el cómputo (trabajos con su cantidad), los rubros con su análisis de
    precios, los materiales y la mano de obra. Las cuentas las hace lib/apu.js; acá se dibuja y se guarda.
    Todo queda en este navegador: el presupuesto en STORE y los precios en PRICES, que son los mismos de las
    calculadoras y del diseñador de planos. La página se redibuja entera en cada cambio y repone el foco. */
