@@ -1,4 +1,4 @@
-/* CalcuObra — documentación de obra: panel para cargar los datos de la carátula, ver las láminas e imprimirlas.
+/* Arqium — documentación de obra: panel para cargar los datos de la carátula, ver las láminas e imprimirlas.
    Las láminas las arma lib/sheets.js; acá solo está el formulario y la vista previa.
    Uso: brand.docs.open({ plan: () => plano, save: (doc) => …, download: (nombre, blob) => …, fileName: (ext) => … }). */
 (function () {

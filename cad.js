@@ -1,4 +1,4 @@
-/* CalcuObra — "De AutoCAD a render", en la portada: lee los DXF en el dispositivo (lib/dxfin.js), muestra
+/* Arqium — "De AutoCAD a render", en la portada: lee los DXF en el dispositivo (lib/dxfin.js), muestra
    qué entendió de cada dibujo y renderiza la planta (render.js). Los archivos no se suben a ningún lado.
    Se cargan en tres casilleros: la planta (o el plano completo), los cortes y las vistas. Un archivo con varios
    dibujos se separa en dibujos sueltos y cada uno recibe un papel: planta, corte, vista o no usar. Solo la planta
@@ -8,7 +8,7 @@
 
   const brand = window.__BRAND__ || {};
   const P = brand.plan, E = brand.engine;
-  const HANDOFF = "calcuobra.importado"; // plano que se le pasa al diseñador: src/planner/editor.js lo toma al abrir con #importado
+  const HANDOFF = "arqium.importado"; // plano que se le pasa al diseñador: src/planner/store.ts lo toma al abrir con #importado
   const MAX = 40 * 1024 * 1024;
   const UNIT_NAMES = { 100: "metros", 1: "centímetros", 0.1: "milímetros" };
   const KIND_NAMES = { planta: "planta", techo: "planta de techos", corte: "corte", vista: "vista", otro: "otro dibujo", "?": "sin identificar" };

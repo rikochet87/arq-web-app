@@ -1,4 +1,4 @@
-/* CalcuObra — panel a pantalla completa con pestañas, para las planillas y el presupuesto.
+/* Arqium — panel a pantalla completa con pestañas, para las planillas y el presupuesto.
    No sabe nada del plano: quien lo abre le da el contenido de cada pestaña y atiende lo que se edita.
    Uso: brand.panel.open({ title, tabs: [{ id, label }], actions: [{ id, label, ghost }],
           render(tab) → HTML, change(e, tab), input(e, tab), action(id, tab), click(e, tab) }) → { refresh, close } */

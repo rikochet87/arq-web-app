@@ -1,4 +1,4 @@
-/* Tipos del modelo del plano, tal como lo guarda hoy el diseñador (localStorage "calcuobra.plano.v1" y los archivos
+/* Tipos del modelo del plano, tal como lo guarda hoy el diseñador (localStorage "arqium.plano.v1" y los archivos
    exportados). Describen los datos existentes; no cambian nada. Son la base para migrar el editor (src/planner/) y los demás scripts a
    TypeScript y, más adelante, para el modelo BIM (identificadores estables, propiedades por elemento, IFC).
 

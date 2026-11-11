@@ -1,4 +1,4 @@
-/* CalcuObra — motor de cálculo. Funciones puras, sin DOM: reciben los valores
+/* Arqium — motor de cálculo. Funciones puras, sin DOM: reciben los valores
    del formulario tal como se escribieron y devuelven
    { main: [{label, value, unit}], rows: [{label, value}], notes: [texto] }. */
 import type { Brand, Row } from "../src/types/brand";

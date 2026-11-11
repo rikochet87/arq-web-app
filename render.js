@@ -1,4 +1,4 @@
-/* CalcuObra — render del plano: los mismos volúmenes de la vista 3D (lib/plan.ts, solids), con cielo, sol,
+/* Arqium — render del plano: los mismos volúmenes de la vista 3D (lib/plan.ts, solids), con cielo, sol,
    sombras y materiales. Usa el motor que carga view3d.js.
    Mientras se mueve la cámara se ve una imagen rápida. Al soltarla, la imagen se afina sola: se promedian
    SAMPLES cuadros, cada uno con el sol corrido dentro de su disco (sombra con penumbra), con una luz de cielo

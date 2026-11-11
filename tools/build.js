@@ -62,7 +62,7 @@ const PAGES = [
     icon: "M3 5h18v14H3z M3 9.7h18 M3 14.3h18 M9 5v4.7 M15 5v4.7 M12 9.7v4.6 M9 14.3V19 M15 14.3V19",
     name: "Ladrillos y mortero",
     card: "Cuántos ladrillos, cemento, cal y arena lleva una pared.",
-    title: "Calculadora de ladrillos por m² y mortero | CalcuObra",
+    title: "Calculadora de ladrillos por m² y mortero | Arqium",
     description: "Calculá cuántos ladrillos entran por m² de pared y cuánto cemento, cal y arena lleva el mortero. Ladrillo común, hueco y bloque. Gratis.",
     h1: "Calculadora de ladrillos por m²",
     lead: "Cargá las medidas de la pared y mirá cuántos ladrillos, cemento, cal y arena tenés que comprar.",
@@ -117,7 +117,7 @@ const PAGES = [
     icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5 M12 12v9 M12 12L4 7.5",
     name: "Hormigón",
     card: "Metros cúbicos y bolsas de cemento, arena y piedra.",
-    title: "Calculadora de hormigón: m³, cemento y arena | CalcuObra",
+    title: "Calculadora de hormigón: m³, cemento y arena | Arqium",
     description: "Calculá los m³ de hormigón de una losa, viga o columna y cuántas bolsas de cemento, arena y piedra necesitás. Gratis y sin registrarte.",
     h1: "Calculadora de hormigón",
     lead: "Cargá las medidas y mirá los metros cúbicos y los materiales para prepararlo en obra.",
@@ -167,7 +167,7 @@ const PAGES = [
     icon: "M4 4h13v5H4z M17 6.5h3v5h-8v3 M10.5 14.5h3V21h-3z",
     name: "Pintura",
     card: "Litros de pintura según la superficie y las manos.",
-    title: "Calculadora de pintura: litros por m² | CalcuObra",
+    title: "Calculadora de pintura: litros por m² | Arqium",
     description: "Calculá cuántos litros de pintura necesitás para un ambiente según sus medidas, las manos y el rendimiento. Te dice qué envases comprar.",
     h1: "Calculadora de pintura",
     lead: "Cargá las medidas del ambiente y mirá cuántos litros necesitás y qué envases comprar.",
@@ -217,7 +217,7 @@ const PAGES = [
     icon: "M4 4h16v16H4z M12 4v16 M4 12h16",
     name: "Cerámicos y pisos",
     card: "Cajas, adhesivo y pastina con el desperdicio incluido.",
-    title: "Calculadora de cerámicos y pisos por m² | CalcuObra",
+    title: "Calculadora de cerámicos y pisos por m² | Arqium",
     description: "Calculá cuántas cajas de cerámicos o porcelanato necesitás, con desperdicio incluido, y cuánto adhesivo y pastina comprar. Gratis.",
     h1: "Calculadora de cerámicos y pisos",
     lead: "Cargá las medidas del ambiente y de la pieza y mirá cuántas cajas, adhesivo y pastina comprar.",
@@ -266,7 +266,7 @@ const PAGES = [
     icon: "M3 20h5v-5h5v-5h5V5h3",
     name: "Escaleras",
     card: "Cantidad de escalones, huella y contrahuella.",
-    title: "Calculadora de escaleras: huella y contrahuella | CalcuObra",
+    title: "Calculadora de escaleras: huella y contrahuella | Arqium",
     description: "Calculá cuántos escalones lleva tu escalera y la medida de la huella y la contrahuella con la regla de Blondel. Gratis y al instante.",
     h1: "Calculadora de escaleras",
     lead: "Cargá la altura a salvar y mirá cuántos escalones lleva y cuánto miden la huella y la contrahuella.",
@@ -308,7 +308,7 @@ const PAGES = [
     icon: "M12 4l9 4.5-9 4.5-9-4.5z M3 13l9 4.5 9-4.5 M3 17l9 4.5 9-4.5",
     name: "Contrapiso y carpeta",
     card: "Volumen y materiales para contrapiso y carpeta.",
-    title: "Calculadora de contrapiso y carpeta | CalcuObra",
+    title: "Calculadora de contrapiso y carpeta | Arqium",
     description: "Calculá los m³ y los materiales para hacer un contrapiso y su carpeta: cemento, cal, arena y cascote según la superficie y el espesor.",
     h1: "Calculadora de contrapiso y carpeta",
     lead: "Cargá la superficie y los espesores y mirá el volumen y los materiales que necesitás.",
@@ -356,7 +356,7 @@ const PLANNER = {
   icon: "M3 3h18v18H3z M3 13h8 M11 3v6 M11 13v8 M15 13h6",
   app: true,
   entry: "disenador",
-  title: "Diseñador de planos con cómputo de materiales | CalcuObra",
+  title: "Diseñador de planos con cómputo de materiales | Arqium",
   description: "Dibujá el plano de tu casa online, miralo en 3D, anotalo, compará opciones y obtené el cómputo de materiales: ladrillos, cemento, revoques, pisos, techo y pintura.",
   h1: "Diseñador de planos con cómputo de materiales",
   lead: "Dibujá la planta, amueblala, mirala en 3D y llevate la lista de materiales de toda la vivienda, con las medidas y los formatos que se venden en Argentina.",
@@ -675,7 +675,9 @@ function plannerPage() {
 }
 
 // ---------- Plantilla ----------
-const LOGO = icon("M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7");
+// Logo: un bloque en isométrica, el modelo de la obra. Los colores de cada cara salen de styles.css (.logo .lg-*).
+const LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><path class="lg-top" d="M24 5L41 14.5L24 24L7 14.5Z"/>' +
+  '<path class="lg-left" d="M7 14.5L24 24V43L7 33.5Z"/><path class="lg-right" d="M41 14.5L24 24V43L41 33.5Z"/></svg>';
 
 function jsonLd(obj) {
   return `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`;
@@ -699,11 +701,11 @@ function layout(p, body) {
   <meta property="og:description" content="${esc(p.description)}">
   <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
   <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="theme-color" content="${p.app ? "#15171a" : "#f3f2ee"}">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="styles.css">
   ${(p.ld || []).map(jsonLd).join("\n  ")}${p.importmap ? `\n  <script type="importmap">${JSON.stringify(p.importmap)}</script>` : ""}${p.entry ? `
   <script type="module" src="src/entries/${p.entry}.ts"></script>` : ""}
@@ -712,7 +714,7 @@ function layout(p, body) {
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
   ${p.app ? "" : `<header class="site-header">
     <div class="container">
-      <a class="logo" href="index.html">${LOGO}${BRAND.name}</a>
+      <a class="logo" href="index.html">${LOGO}<span>${BRAND.name}</span></a>
       <nav class="site-nav" aria-label="Principal">
         <a class="nav-link" href="${PLANNER.file}">Diseñador de planos</a>
         <a class="nav-link" href="presupuesto.html">Presupuesto</a>
@@ -806,7 +808,7 @@ ${AD("en medio del contenido")}
 // ---------- Presupuesto de obra ----------
 const BUDGET = {
   file: "presupuesto.html",
-  title: "Presupuesto de obra con análisis de precios | CalcuObra",
+  title: "Presupuesto de obra con análisis de precios | Arqium",
   description: "Armá el presupuesto de tu obra por rubros: elegí los trabajos, poné las cantidades y cargá tus precios de materiales y mano de obra. Con análisis de precios editables. Gratis y sin registro.",
   entry: "presupuesto",
   terms: [
@@ -867,7 +869,7 @@ function budgetPage() {
 function homePage() {
   const p = {
     file: "index.html",
-    title: "Planos y calculadoras de construcción gratis | CalcuObra",
+    title: "Planos y calculadoras de construcción gratis | Arqium",
     description: "Dibujá el plano de tu casa y obtené el cómputo de materiales al instante. Subí un plano de AutoCAD (DXF) y miralo en un render 3D. Más calculadoras de ladrillos, hormigón, pintura y pisos. Gratis.",
     entry: "portada",
     ld: [Object.assign({ "@context": "https://schema.org", "@type": "WebSite", name: BRAND.name, inLanguage: "es-AR" }, SITE_URL ? { url: SITE_URL + "/" } : {})]
@@ -884,7 +886,7 @@ function homePage() {
     '          <a class="btn btn-ghost btn-lg" href="#render">Subir un plano de AutoCAD</a>',
     "        </div>",
     "      </div>",
-    '      <a class="hero-preview" href="' + PLANNER.file + '#ejemplo" aria-label="Abrir el plano de ejemplo en el diseñador">',
+    '      <a class="hero-preview theme-dark" href="' + PLANNER.file + '#ejemplo" aria-label="Abrir el plano de ejemplo en el diseñador">',
     "        " + preview.svg,
     '        <span class="hero-stats">' + preview.model.main.map((m) => "<span><b>" + m.value + "</b> " + m.unit.replace("unidades", "ladrillos").replace(/^bolsas.*/, "bolsas de cemento") + "</span>").join("") + "</span>",
     "      </a>",
@@ -973,7 +975,7 @@ function homePage() {
     "",
     '    <section class="section prose">',
     "      <h2>Para qué sirve</h2>",
-    "      <p>Comprar de menos frena la obra y obliga a pagar otro flete. Comprar de más es plata inmovilizada y material que se echa a perder. CalcuObra hace la cuenta que normalmente se hace a mano o a ojo, con las medidas y los envases que se consiguen en Argentina: bolsas de cemento y de cal de 25 kg, ladrillos comunes, huecos cerámicos y bloques.</p>",
+    "      <p>Comprar de menos frena la obra y obliga a pagar otro flete. Comprar de más es plata inmovilizada y material que se echa a perder. Arqium hace la cuenta que normalmente se hace a mano o a ojo, con las medidas y los envases que se consiguen en Argentina: bolsas de cemento y de cal de 25 kg, ladrillos comunes, huecos cerámicos y bloques.</p>",
     "      <p>Cada herramienta explica la fórmula que usa, para que puedas revisar el resultado y ajustarlo a tu obra. Los valores son orientativos y sirven para presupuestar: lo que hace a la seguridad de la estructura lo define siempre un profesional.</p>",
     "    </section>"
   ].join("\n");

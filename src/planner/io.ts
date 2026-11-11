@@ -30,7 +30,7 @@ export function exportDxf() {
 }
 
 export function exportJson() {
-  download(nameFor("json"), new Blob([JSON.stringify(Object.assign({ app: "calcuobra", version: 1 }, JSON.parse(ops.snapshot())), null, 1)], { type: "application/json" }));
+  download(nameFor("json"), new Blob([JSON.stringify(Object.assign({ app: "arqium", version: 1 }, JSON.parse(ops.snapshot())), null, 1)], { type: "application/json" }));
 }
 
 export function openPlanFile(file: File) {

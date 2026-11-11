@@ -1,4 +1,4 @@
-/* CalcuObra — interfaz: lee el formulario, llama al motor (lib/calc.ts) y pinta el resultado. */
+/* Arqium — interfaz: lee el formulario, llama al motor (lib/calc.ts) y pinta el resultado. */
 (function () {
   "use strict";
 
@@ -14,7 +14,7 @@
   /* ---------- Costo estimado ----------
      Los precios que cambia el usuario se guardan en este navegador y valen para todas las calculadoras. */
   const costs = brand.costs;
-  const PRICE_KEY = "calcuobra.precios.v1";
+  const PRICE_KEY = "arqium.precios.v1";
   function loadPrices() {
     try { return costs.clean(JSON.parse(localStorage.getItem(PRICE_KEY) || "{}")); } catch (e) { return {}; }
   }
@@ -28,7 +28,7 @@
 
   /* ---------- Presupuesto de obra ----------
      Lo calculado se puede sumar al presupuesto por rubros (presupuesto.html): pasa como un rubro propio con su cantidad. */
-  const apu = brand.apu, BUDGET_KEY = "calcuobra.presupuesto.v1";
+  const apu = brand.apu, BUDGET_KEY = "arqium.presupuesto.v1";
   function sendToBudget(cost) {
     let store;
     try { store = apu.clean(JSON.parse(localStorage.getItem(BUDGET_KEY))); } catch (e) { store = apu.empty(); }

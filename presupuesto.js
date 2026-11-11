@@ -1,4 +1,4 @@
-/* CalcuObra — página "Presupuesto de obra": el cómputo (trabajos con su cantidad), los rubros con su análisis de
+/* Arqium — página "Presupuesto de obra": el cómputo (trabajos con su cantidad), los rubros con su análisis de
    precios, los materiales y la mano de obra. Las cuentas las hace lib/apu.js; acá se dibuja y se guarda.
    Todo queda en este navegador: el presupuesto en STORE y los precios en PRICES, que son los mismos de las
    calculadoras y del diseñador de planos. La página se redibuja entera en cada cambio y repone el foco. */
@@ -7,7 +7,7 @@
 
   const brand = window.__BRAND__ || {};
   const A = brand.apu, K = brand.costs, E = brand.engine;
-  const STORE = "calcuobra.presupuesto.v1", PRICES = "calcuobra.precios.v1";
+  const STORE = "arqium.presupuesto.v1", PRICES = "arqium.precios.v1";
   const TABS = [["obra", "Presupuesto"], ["rubros", "Rubros y análisis de precios"], ["materiales", "Materiales"], ["mano", "Mano de obra"]];
   const DAY = 8; // horas de una jornada
 
@@ -285,7 +285,7 @@
       clear: function () { store.lines = []; save(); },
       print: function () { tab = "obra"; picker = false; open.needs = true; paint(); window.print(); return false; },
       csv: function () { download(fileName("csv"), A.csv(b, store.name), "text/csv;charset=utf-8"); return false; },
-      export: function () { download(fileName("json"), JSON.stringify({ app: "calcuobra-presupuesto", v: 1, store: store, prices: prices }), "application/json"); return false; },
+      export: function () { download(fileName("json"), JSON.stringify({ app: "arqium-presupuesto", v: 1, store: store, prices: prices }), "application/json"); return false; },
       import: function () { root.querySelector("[data-file]").click(); return false; }
     };
 
@@ -361,7 +361,7 @@
       reader.onload = function () {
         let data = null;
         try { data = JSON.parse(reader.result); } catch (e) { /* no es una copia */ }
-        if (!data || data.app !== "calcuobra-presupuesto" || !data.store) { note = "Ese archivo no es una copia de un presupuesto de " + (brand.name || "este sitio") + "."; paint(); return; }
+        if (!data || data.app !== "arqium-presupuesto" || !data.store) { note = "Ese archivo no es una copia de un presupuesto de " + (brand.name || "este sitio") + "."; paint(); return; }
         store = A.clean(data.store);
         Object.assign(prices, K.clean(data.prices || {})); // los precios de la copia pisan a los de este dispositivo
         save(); savePrices();

@@ -1,4 +1,4 @@
-/* CalcuObra — plano de vivienda: geometría y cómputo. Sin DOM. Todas las medidas en cm.
+/* Arqium — plano de vivienda: geometría y cómputo. Sin DOM. Todas las medidas en cm.
    Plano = { walls: [{id, a:{x,y}, b:{x,y}, type}] (type: id del tipo de muro en wallTypes; sin type usa el de su clase en los ajustes),
              wallTypes: [{id, name, brick, ext, int}] (tipos de muro del plano, ver "Tipos de muro"), openings: [{id, wall, t, type, w, h, side, hinge}],
              items: [{id, type, x, y, r, w, d}] (muebles, artefactos y bocas; x, y = centro; r = giro en grados),
