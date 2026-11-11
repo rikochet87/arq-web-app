@@ -1,8 +1,8 @@
 /* Constantes del diseñador de planos: claves de almacenamiento, grilla, capas, plantillas de vista, colores,
    textos de ayuda de cada herramienta y atajos de teclado. */
-export const STORE = "calcuobra.plano.v1";
-export const HANDOFF = "calcuobra.importado"; // plano que manda la portada (cad.js) al abrir el diseñador con #importado
-export const SHELF = "calcuobra.biblioteca.v1"; // "Mis muebles": queda en el navegador, aparte del plano, y sirve para todos los planos
+export const STORE = "arqium.plano.v1";
+export const HANDOFF = "arqium.importado"; // plano que manda la portada (cad.js) al abrir el diseñador con #importado
+export const SHELF = "arqium.biblioteca.v1"; // "Mis muebles": queda en el navegador, aparte del plano, y sirve para todos los planos
 export const SHELF_MAX = 40;
 export const GRID = 10; // cm
 export const UNTITLED = "Plano sin título";

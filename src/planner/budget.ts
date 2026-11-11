@@ -11,7 +11,7 @@ export function openBudget() {
   const BG = brand.budget, U = brand.panel, K = brand.costs;
   if (!BG || !U || !K) return;
   if (!P.levelsOf(st.plan).some((lv) => lv.walls.length)) { hint.textContent = "Dibujá al menos un ambiente para presupuestar."; return; }
-  const esc = U.esc, PRICE_KEY = "calcuobra.precios.v1", money = K.money;
+  const esc = U.esc, PRICE_KEY = "arqium.precios.v1", money = K.money;
   const loadPrices = () => { try { return K.clean(JSON.parse(localStorage.getItem(PRICE_KEY) || "{}")); } catch (e) { return {}; } };
   const savePrices = (p: Record<string, number>) => { try { if (Object.keys(p).length) localStorage.setItem(PRICE_KEY, JSON.stringify(p)); else localStorage.removeItem(PRICE_KEY); } catch (e) { /* sin almacenamiento */ } };
   let prices: Record<string, number> = loadPrices();
@@ -75,7 +75,7 @@ export function openBudget() {
     action: function (id) {
       if (id === "print") { window.print(); return; }
       if (id === "send") { // el presupuesto del plano pasa a la página de presupuesto, donde se le suman otros rubros
-        const KEY = "calcuobra.presupuesto.v1", apu = brand.apu!;
+        const KEY = "arqium.presupuesto.v1", apu = brand.apu!;
         try {
           let store;
           try { store = apu.clean(JSON.parse(localStorage.getItem(KEY) as string)); } catch (e) { store = apu.empty(); }
