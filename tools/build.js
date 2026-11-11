@@ -675,7 +675,9 @@ function plannerPage() {
 }
 
 // ---------- Plantilla ----------
-const LOGO = icon("M3 5h18v14H3z M3 12h18 M9 5v7 M15 12v7");
+// Logo: un bloque en isométrica, el modelo de la obra. Los colores de cada cara salen de styles.css (.logo .lg-*).
+const LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><path class="lg-top" d="M24 5L41 14.5L24 24L7 14.5Z"/>' +
+  '<path class="lg-left" d="M7 14.5L24 24V43L7 33.5Z"/><path class="lg-right" d="M41 14.5L24 24V43L41 33.5Z"/></svg>';
 
 function jsonLd(obj) {
   return `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, "\\u003c")}</script>`;
@@ -699,11 +701,11 @@ function layout(p, body) {
   <meta property="og:description" content="${esc(p.description)}">
   <!-- TODO: og:image (imagen de 1200×630 para cuando se comparte el link) -->
   <!-- TODO: al activar la publicidad, agregar acá el aviso de consentimiento de cookies -->
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="theme-color" content="${p.app ? "#15171a" : "#f3f2ee"}">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="styles.css">
   ${(p.ld || []).map(jsonLd).join("\n  ")}${p.importmap ? `\n  <script type="importmap">${JSON.stringify(p.importmap)}</script>` : ""}${p.entry ? `
   <script type="module" src="src/entries/${p.entry}.ts"></script>` : ""}
@@ -712,7 +714,7 @@ function layout(p, body) {
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
   ${p.app ? "" : `<header class="site-header">
     <div class="container">
-      <a class="logo" href="index.html">${LOGO}${BRAND.name}</a>
+      <a class="logo" href="index.html">${LOGO}<span>${BRAND.name}</span></a>
       <nav class="site-nav" aria-label="Principal">
         <a class="nav-link" href="${PLANNER.file}">Diseñador de planos</a>
         <a class="nav-link" href="presupuesto.html">Presupuesto</a>
@@ -884,7 +886,7 @@ function homePage() {
     '          <a class="btn btn-ghost btn-lg" href="#render">Subir un plano de AutoCAD</a>',
     "        </div>",
     "      </div>",
-    '      <a class="hero-preview" href="' + PLANNER.file + '#ejemplo" aria-label="Abrir el plano de ejemplo en el diseñador">',
+    '      <a class="hero-preview theme-dark" href="' + PLANNER.file + '#ejemplo" aria-label="Abrir el plano de ejemplo en el diseñador">',
     "        " + preview.svg,
     '        <span class="hero-stats">' + preview.model.main.map((m) => "<span><b>" + m.value + "</b> " + m.unit.replace("unidades", "ladrillos").replace(/^bolsas.*/, "bolsas de cemento") + "</span>").join("") + "</span>",
     "      </a>",
